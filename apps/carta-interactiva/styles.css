@@ -1,0 +1,172 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  background: #0f1115;
+  color: #f2f2f2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding-top: calc(env(safe-area-inset-top) + 1.5rem);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1.5rem);
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  text-align: center;
+  color: #f2f2f2;
+}
+
+button {
+  min-height: 44px;
+  min-width: 44px;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* --- Carta interactiva --- */
+
+.card-scene {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 3 / 4;
+  perspective: 1200px;
+}
+
+.card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 350ms ease;
+  cursor: pointer;
+  border-radius: 20px;
+}
+
+.card:focus-visible {
+  outline: 2px solid #6ea8fe;
+  outline-offset: 4px;
+}
+
+.card.flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  border-radius: 20px;
+  backface-visibility: hidden;
+  text-align: center;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.card-front {
+  background: linear-gradient(160deg, #1c2030, #12141c);
+  border: 1px solid #2a2f42;
+}
+
+.card-back {
+  background: linear-gradient(160deg, #223047, #141a26);
+  border: 1px solid #2a3a52;
+  transform: rotateY(180deg);
+}
+
+.flip-btn {
+  background: #23283a;
+  color: #f2f2f2;
+  padding: 0.75rem 1.5rem;
+}
+
+.flip-btn:active {
+  background: #2c3348;
+}
+
+/* --- Contador --- */
+
+.counter-section {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  background: #171a24;
+  border: 1px solid #262c3d;
+  border-radius: 20px;
+  padding: 1.5rem;
+}
+
+.counter-value {
+  font-size: 3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: transform 150ms ease;
+}
+
+.counter-value.pulse {
+  transform: scale(1.05);
+}
+
+.counter-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.counter-controls button {
+  background: #2b3550;
+  color: #f2f2f2;
+  font-size: 1.5rem;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+}
+
+.counter-controls button:active {
+  background: #374266;
+}
+
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #b3b8c5;
+}
+
+.step-row input {
+  width: 4rem;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid #2a2f42;
+  background: #0f1115;
+  color: #f2f2f2;
+  text-align: center;
+  font-size: 1rem;
+}

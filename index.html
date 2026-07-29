@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Laboratorio de PWAs</title>
+  <meta name="description" content="Laboratorio personal de PWAs simples, instalables desde el iPhone." />
+  <meta name="theme-color" content="#0f1115" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100dvh; }
+    body {
+      padding: env(safe-area-inset-top) env(safe-area-inset-right)
+               env(safe-area-inset-bottom) env(safe-area-inset-left);
+      font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+      background: #0f1115;
+      color: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      padding-top: calc(env(safe-area-inset-top) + 2rem);
+      padding-bottom: calc(env(safe-area-inset-bottom) + 2rem);
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
+    }
+    h1 { font-size: 1.4rem; margin: 0; text-align: center; }
+    p.lead { color: #b3b8c5; text-align: center; margin: 0; max-width: 32rem; }
+    ul.apps {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      width: 100%;
+      max-width: 32rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    ul.apps li a {
+      display: block;
+      min-height: 44px;
+      padding: 1rem 1.25rem;
+      border-radius: 14px;
+      background: #171a24;
+      border: 1px solid #262c3d;
+      color: #f2f2f2;
+      text-decoration: none;
+    }
+    ul.apps li a:active { background: #1e2230; }
+    ul.apps li .app-name { font-weight: 600; }
+    ul.apps li .app-desc { display: block; color: #b3b8c5; font-size: 0.9rem; margin-top: 0.25rem; }
+  </style>
+</head>
+<body>
+  <h1>Laboratorio de PWAs</h1>
+  <p class="lead">PWAs simples en HTML/CSS/JS puro, pensadas para instalarse desde Safari en el iPhone.</p>
+  <ul class="apps" id="apps-list"></ul>
+
+  <script>
+    const apps = [
+      {
+        slug: 'carta-interactiva',
+        name: 'Carta Interactiva',
+        desc: 'Carta que se voltea, con botón, animación discreta y contador configurable.',
+      },
+    ];
+
+    const list = document.getElementById('apps-list');
+    for (const app of apps) {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = `apps/${app.slug}/`;
+      a.innerHTML = `<span class="app-name">${app.name}</span><span class="app-desc">${app.desc}</span>`;
+      li.appendChild(a);
+      list.appendChild(li);
+    }
+  </script>
+</body>
+</html>

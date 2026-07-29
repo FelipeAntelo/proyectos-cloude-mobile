@@ -1,0 +1,18 @@
+# macOS / iOS
+.DS_Store
+._*
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Variables de entorno (por si en el futuro se agrega algo sensible)
+.env
+.env.local

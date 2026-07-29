@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Carta Interactiva</title>
+  <meta name="description" content="Una carta que se voltea, con un contador configurable persistido localmente." />
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0f1115" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Carta" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>Carta Interactiva</h1>
+
+  <div class="card-scene">
+    <div class="card" id="card" tabindex="0" role="button" aria-pressed="false" aria-label="Voltear carta">
+      <div class="card-face card-front">Tocá la carta<br />para voltearla</div>
+      <div class="card-face card-back">✨ Del otro lado<br />había esto</div>
+    </div>
+  </div>
+
+  <button type="button" class="flip-btn" id="flip-btn">Voltear</button>
+
+  <section class="counter-section">
+    <div class="counter-value" id="counter-value">0</div>
+    <div class="counter-controls">
+      <button type="button" id="decrement-btn" aria-label="Restar">−</button>
+      <button type="button" id="increment-btn" aria-label="Sumar">+</button>
+    </div>
+    <label class="step-row">
+      Paso
+      <input type="number" id="step-input" min="1" step="1" inputmode="numeric" />
+    </label>
+  </section>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(console.error);
+      });
+    }
+  </script>
+  <script src="app.js" defer></script>
+</body>
+</html>

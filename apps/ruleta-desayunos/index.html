@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Ruleta de Desayunos</title>
+  <meta name="description" content="Ruleta visual para elegir qué desayunar, con opciones editables." />
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0f1115" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Ruleta" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>Ruleta de Desayunos</h1>
+
+  <div class="wheel-scene">
+    <div class="wheel-pointer" aria-hidden="true"></div>
+    <canvas id="wheel-canvas" width="300" height="300"></canvas>
+  </div>
+
+  <button type="button" class="spin-btn" id="spin-btn">Girar</button>
+  <p class="empty-hint" id="empty-hint" hidden>Agregá al menos una opción para girar la ruleta.</p>
+  <p class="result" id="result"></p>
+
+  <section class="options-section">
+    <h2>Opciones</h2>
+    <ul class="options-list" id="options-list"></ul>
+    <div class="add-row">
+      <input type="text" id="add-input" placeholder="Nueva opción" maxlength="30" />
+      <button type="button" id="add-btn">Agregar</button>
+    </div>
+  </section>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(console.error);
+      });
+    }
+  </script>
+  <script src="app.js" defer></script>
+</body>
+</html>

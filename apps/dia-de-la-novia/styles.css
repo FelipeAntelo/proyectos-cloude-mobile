@@ -16,7 +16,7 @@ html, body {
   --text-main: #4a3f3d;
   --text-soft: #8a746f;
   --text-on-photo: #fdf6f2;
-  --photo-position: 54% 14%;
+  --photo-position: 50% 22%;
   --ease-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
@@ -48,6 +48,51 @@ h1, h2, p {
   position: relative;
   width: 100%;
 }
+
+/* ---------- Botón de música ---------- */
+
+.audio-toggle {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 14px);
+  right: calc(env(safe-area-inset-right) + 14px);
+  z-index: 30;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pink-dusty);
+  box-shadow: 0 8px 20px -12px rgba(74, 63, 61, 0.35);
+  transition: transform 0.35s var(--ease-soft), background 0.35s var(--ease-soft);
+}
+
+.audio-toggle:active {
+  transform: scale(0.92);
+}
+
+.audio-toggle.is-playing {
+  animation: audio-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes audio-pulse {
+  0%, 100% { box-shadow: 0 8px 20px -12px rgba(74, 63, 61, 0.35); }
+  50% { box-shadow: 0 8px 22px -10px rgba(217, 166, 178, 0.55); }
+}
+
+.audio-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.audio-icon-on { display: none; }
+
+.audio-toggle.is-playing .audio-icon-off { display: none; }
+.audio-toggle.is-playing .audio-icon-on { display: block; }
 
 /* ---------- Portada ---------- */
 
@@ -168,20 +213,12 @@ h1, h2, p {
   animation: rise-in 1s var(--ease-soft) forwards;
 }
 
-.eyebrow { animation-delay: 0.15s; }
-.portada-content h1 { animation-delay: 0.35s; }
-.portada-content .subtitle { animation-delay: 0.55s; }
-.btn-primary { animation-delay: 0.85s; }
+.portada-content h1 { animation-delay: 0.2s; }
+.portada-content .subtitle { animation-delay: 0.45s; }
+.btn-primary { animation-delay: 0.75s; }
 
 @keyframes rise-in {
   to { opacity: 1; transform: translateY(0); }
-}
-
-.eyebrow {
-  font-size: 0.8rem;
-  letter-spacing: 0.04em;
-  color: var(--text-soft);
-  margin-bottom: 0.2rem;
 }
 
 .portada-content h1 {

@@ -70,113 +70,15 @@ if (particlesHost && !prefersReducedMotion) {
   }
 }
 
-/* ---------- Música ambiental (Web Audio API, sin dependencias externas) ---------- */
+/* ---------- Música de fondo (archivo MP3, sin autoplay) ---------- */
 
 const audioToggle = document.getElementById('audio-toggle');
-const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+const bgMusic = document.getElementById('bg-music');
 
-const TARGET_VOLUME = 0.07;
-const PLUCK_NOTES = [440, 493.88, 587.33, 659.25, 739.99]; // pentatónica cálida sobre La mayor7
-
-let audioCtx = null;
-let masterGain = null;
-let delayNode = null;
-let musicPlaying = false;
 let musicEverStarted = false;
-let pluckTimer = null;
 
-if (!AudioContextClass && audioToggle) {
-  audioToggle.remove();
-}
-
-function buildAmbientGraph(ctx) {
-  const master = ctx.createGain();
-  master.gain.value = 0;
-  master.connect(ctx.destination);
-
-  const padFilter = ctx.createBiquadFilter();
-  padFilter.type = 'lowpass';
-  padFilter.frequency.value = 900;
-  padFilter.Q.value = 0.4;
-  padFilter.connect(master);
-
-  const chord = [220, 277.18, 329.63, 415.3]; // La3, Do#4, Mi4, Sol#4 (Amaj7), acorde cálido
-  chord.forEach((freq, i) => {
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-
-    const oscGain = ctx.createGain();
-    oscGain.gain.value = 0.22;
-
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.value = 0.06 + i * 0.015;
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 2.5;
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
-
-    osc.connect(oscGain);
-    oscGain.connect(padFilter);
-    osc.start();
-    lfo.start();
-  });
-
-  const delay = ctx.createDelay(2);
-  delay.delayTime.value = 0.55;
-  const feedback = ctx.createGain();
-  feedback.gain.value = 0.32;
-  const delayFilter = ctx.createBiquadFilter();
-  delayFilter.type = 'lowpass';
-  delayFilter.frequency.value = 2200;
-
-  delay.connect(delayFilter);
-  delayFilter.connect(feedback);
-  feedback.connect(delay);
-  delay.connect(master);
-
-  return { master, delay };
-}
-
-function playPluckNote() {
-  const freq = PLUCK_NOTES[Math.floor(Math.random() * PLUCK_NOTES.length)];
-  const now = audioCtx.currentTime;
-
-  const osc = audioCtx.createOscillator();
-  osc.type = 'triangle';
-  osc.frequency.value = freq;
-
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(0.12, now + 0.05);
-  gain.gain.exponentialRampToValueAtTime(0.0005, now + 2.2);
-
-  osc.connect(gain);
-
-  if (audioCtx.createStereoPanner) {
-    const panner = audioCtx.createStereoPanner();
-    panner.pan.value = Math.random() * 1.2 - 0.6;
-    gain.connect(panner);
-    panner.connect(masterGain);
-    panner.connect(delayNode);
-  } else {
-    gain.connect(masterGain);
-    gain.connect(delayNode);
-  }
-
-  osc.start(now);
-  osc.stop(now + 2.3);
-}
-
-function scheduleNextPluck() {
-  const delaySeconds = 3.5 + Math.random() * 4.5;
-  pluckTimer = setTimeout(() => {
-    pluckTimer = null;
-    if (!musicPlaying) return;
-    playPluckNote();
-    scheduleNextPluck();
-  }, delaySeconds * 1000);
+if (bgMusic) {
+  bgMusic.volume = 0.25;
 }
 
 function setAudioButtonState(playing) {
@@ -187,49 +89,34 @@ function setAudioButtonState(playing) {
 }
 
 function playMusic() {
-  if (!AudioContextClass) return;
-
-  if (!audioCtx) {
-    audioCtx = new AudioContextClass();
-    const graph = buildAmbientGraph(audioCtx);
-    masterGain = graph.master;
-    delayNode = graph.delay;
+  if (!bgMusic) return;
+  const playPromise = bgMusic.play();
+  musicEverStarted = true;
+  if (playPromise && typeof playPromise.catch === 'function') {
+    playPromise.catch(() => {
+      /* Safari puede bloquear la reproducción fuera de un gesto del usuario */
+    });
   }
-
-  audioCtx
-    .resume()
-    .then(() => {
-      const now = audioCtx.currentTime;
-      masterGain.gain.cancelScheduledValues(now);
-      masterGain.gain.setValueAtTime(masterGain.gain.value, now);
-      masterGain.gain.linearRampToValueAtTime(TARGET_VOLUME, now + 1.6);
-      musicPlaying = true;
-      musicEverStarted = true;
-      setAudioButtonState(true);
-      if (!pluckTimer) scheduleNextPluck();
-    })
-    .catch(() => {});
 }
 
 function pauseMusic() {
-  if (!audioCtx || !masterGain) return;
-  const now = audioCtx.currentTime;
-  masterGain.gain.cancelScheduledValues(now);
-  masterGain.gain.setValueAtTime(masterGain.gain.value, now);
-  masterGain.gain.linearRampToValueAtTime(0, now + 0.7);
-  musicPlaying = false;
-  setAudioButtonState(false);
-  if (pluckTimer) {
-    clearTimeout(pluckTimer);
-    pluckTimer = null;
-  }
+  bgMusic?.pause();
+}
+
+if (bgMusic) {
+  bgMusic.addEventListener('play', () => setAudioButtonState(true));
+  bgMusic.addEventListener('pause', () => setAudioButtonState(false));
+  bgMusic.addEventListener('error', () => setAudioButtonState(false));
+} else if (audioToggle) {
+  audioToggle.remove();
 }
 
 audioToggle?.addEventListener('click', () => {
-  if (musicPlaying) {
-    pauseMusic();
-  } else {
+  if (!bgMusic) return;
+  if (bgMusic.paused) {
     playMusic();
+  } else {
+    pauseMusic();
   }
 });
 

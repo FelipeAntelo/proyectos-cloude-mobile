@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Para mi amorcito</title>
+  <meta name="description" content="Una pequeña sorpresa preparada con mucho amor." />
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#fff9fa" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Para vos" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <section id="portada" class="screen portada">
+    <div id="portada-media" class="portada-media">
+      <img
+        id="portada-photo"
+        class="portada-photo"
+        src="assets/portada.jpg"
+        alt="Foto de mi amorcito"
+      />
+      <div class="portada-fallback">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 20.3c-.3 0-.6-.1-.8-.3C7.6 16.9 3 13 3 8.9 3 6.2 5.1 4 7.8 4c1.6 0 3.1.8 4.2 2.1C13.1 4.8 14.6 4 16.2 4 18.9 4 21 6.2 21 8.9c0 4.1-4.6 8-8.2 11.1-.2.2-.5.3-.8.3z"
+            stroke="#ffffff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <div class="portada-gradient"></div>
+      <div id="portada-particles" class="portada-particles"></div>
+    </div>
+
+    <div class="portada-content">
+      <p class="eyebrow">Preparé algo para vos</p>
+      <h1>Feliz Día de la Novia</h1>
+      <p class="subtitle">Para mi amorcito, la mujer más preciosa y la reina de mi corazón</p>
+      <button id="btn-abrir" class="btn-primary" type="button">Abrí tu sorpresa</button>
+    </div>
+  </section>
+
+  <main>
+    <section id="carta" class="screen carta">
+      <article id="carta-card" class="carta-card">
+        <span class="mini-heart">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 20.3c-.3 0-.6-.1-.8-.3C7.6 16.9 3 13 3 8.9 3 6.2 5.1 4 7.8 4c1.6 0 3.1.8 4.2 2.1C13.1 4.8 14.6 4 16.2 4 18.9 4 21 6.2 21 8.9c0 4.1-4.6 8-8.2 11.1-.2.2-.5.3-.8.3z"
+              stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        <div class="carta-texto">
+          <p>Feliz Día de la Novia, mi amorcito precioso.</p>
+          <p>Hoy quería hacerte este pequeño detalle para recordarte cuánto te amo y cuánto significás para mí. Aunque ahora estemos lejos y no pueda acompañarte físicamente, todos los días estás presente en mi mente y en mi corazón.</p>
+          <p>Te extraño un montón. Extraño tenerte cerca, hablar con vos, compartir nuestras cosas y esos momentos sencillos que, cuando son a tu lado, se vuelven especiales.</p>
+          <p>También quiero que sepás lo orgulloso que estoy de vos. Sos una mujer increíble, fuerte, dedicada y con un corazón hermoso. Admiro todo el esfuerzo que estás haciendo, incluso en esos días largos en los que seguramente estás cansada o las cosas no salen como esperabas.</p>
+          <hr class="carta-divider" />
+          <p>Gracias por ser una gran mujer y una compañera de vida tan bonita para mí. Gracias por tu amor, por tu paciencia, por estar conmigo y por seguir construyendo nuestra relación incluso a la distancia.</p>
+          <p>Te amo muchísimo, mi reina preciosa. Feliz Día de la Novia a la mujer que llena mi mente, mi corazón y mi vida entera de algo muy bonito.</p>
+        </div>
+      </article>
+    </section>
+
+    <section id="motivos" class="screen motivos">
+      <h2>Cinco motivos por los que te amo</h2>
+
+      <ul class="motivos-list">
+        <li class="motivo-card" data-id="corazon">
+          <button class="motivo-toggle" type="button" aria-expanded="false" aria-controls="panel-corazon">
+            <span class="motivo-titulo">
+              <span class="motivo-visitada-dot" aria-hidden="true"></span>
+              Tu corazón
+            </span>
+            <svg class="motivo-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div class="motivo-panel" id="panel-corazon">
+            <div class="motivo-panel-inner">
+              <p>Porque tenés un corazón muy bonito, delicado y lleno de ternura. Sos una mujer muy femenina, muy especial, y hay una dulzura en vos que amo con todo mi ser.</p>
+            </div>
+          </div>
+        </li>
+
+        <li class="motivo-card" data-id="fortaleza">
+          <button class="motivo-toggle" type="button" aria-expanded="false" aria-controls="panel-fortaleza">
+            <span class="motivo-titulo">
+              <span class="motivo-visitada-dot" aria-hidden="true"></span>
+              Tu fortaleza
+            </span>
+            <svg class="motivo-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div class="motivo-panel" id="panel-fortaleza">
+            <div class="motivo-panel-inner">
+              <p>Porque incluso cuando estás cansada, lejos de casa o atravesando días difíciles, seguís adelante. Admiro mucho esa fuerza tuya y la manera en que no te rendís.</p>
+            </div>
+          </div>
+        </li>
+
+        <li class="motivo-card" data-id="mujer">
+          <button class="motivo-toggle" type="button" aria-expanded="false" aria-controls="panel-mujer">
+            <span class="motivo-titulo">
+              <span class="motivo-visitada-dot" aria-hidden="true"></span>
+              La mujer que sos
+            </span>
+            <svg class="motivo-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div class="motivo-panel" id="panel-mujer">
+            <div class="motivo-panel-inner">
+              <p>Porque admiro tu dedicación, tus sueños y todo el esfuerzo que hacés. Y además de todo eso, sos una mujer muy delicada, muy femenina y profundamente hermosa, y eso es algo que amo con todo mi ser.</p>
+            </div>
+          </div>
+        </li>
+
+        <li class="motivo-card" data-id="sentir">
+          <button class="motivo-toggle" type="button" aria-expanded="false" aria-controls="panel-sentir">
+            <span class="motivo-titulo">
+              <span class="motivo-visitada-dot" aria-hidden="true"></span>
+              Cómo me hacés sentir
+            </span>
+            <svg class="motivo-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div class="motivo-panel" id="panel-sentir">
+            <div class="motivo-panel-inner">
+              <p>Porque todo tu ser le da color a mi vida y llena mis días de un sentido muy bonito. A tu lado siento paz, amor y la felicidad de tener una gran compañera de vida.</p>
+            </div>
+          </div>
+        </li>
+
+        <li class="motivo-card" data-id="relacion">
+          <button class="motivo-toggle" type="button" aria-expanded="false" aria-controls="panel-relacion">
+            <span class="motivo-titulo">
+              <span class="motivo-visitada-dot" aria-hidden="true"></span>
+              Nuestra relación
+            </span>
+            <svg class="motivo-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div class="motivo-panel" id="panel-relacion">
+            <div class="motivo-panel-inner">
+              <p>Porque incluso con la distancia, y a pesar de cualquier cosa, seguimos eligiéndonos, acompañándonos y construyendo algo que para mí vale muchísimo.</p>
+            </div>
+          </div>
+        </li>
+      </ul>
+
+      <div class="motivos-cta">
+        <button id="btn-final" class="btn-secondary" type="button">Llegaste al final</button>
+      </div>
+    </section>
+  </main>
+
+  <section id="final" class="screen final">
+    <div class="final-glow"></div>
+    <div class="final-content">
+      <svg class="final-heart" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 20.3c-.3 0-.6-.1-.8-.3C7.6 16.9 3 13 3 8.9 3 6.2 5.1 4 7.8 4c1.6 0 3.1.8 4.2 2.1C13.1 4.8 14.6 4 16.2 4 18.9 4 21 6.2 21 8.9c0 4.1-4.6 8-8.2 11.1-.2.2-.5.3-.8.3z"
+          stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <p class="final-principal">Cada día te extraño un montón, pero también recuerdo que, sin importar la distancia, siempre voy a elegirte, todos los días de mi vida.</p>
+      <p class="final-secundario">Te amo, mi reina preciosa.</p>
+      <p class="final-cierre">Feliz Día de la Novia, mi amorcito.</p>
+    </div>
+  </section>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(console.error);
+      });
+    }
+  </script>
+  <script src="app.js" defer></script>
+</body>
+</html>

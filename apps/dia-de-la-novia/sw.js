@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dia-de-la-novia-v2';
+const CACHE_NAME = 'dia-de-la-novia-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const APP_SHELL = [
   './app.js',
   './manifest.webmanifest',
   './assets/portada.jpg',
+  './assets/musica.mp3',
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
   './icons/icon-512.png',

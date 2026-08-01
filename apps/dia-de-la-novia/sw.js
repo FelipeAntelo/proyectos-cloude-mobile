@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dia-de-la-novia-v1';
+const CACHE_NAME = 'dia-de-la-novia-v2';
 const APP_SHELL = [
   './',
   './index.html',

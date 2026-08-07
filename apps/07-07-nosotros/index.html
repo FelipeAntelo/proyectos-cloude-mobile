@@ -42,7 +42,7 @@
         </div>
         <p class="date-mark">07 · 07 · 2022</p>
         <p class="title-serif line-md">Hay cosas que todavía quiero seguir cuidando.</p>
-        <p class="hint" id="portada-hint">Tócala</p>
+        <p class="hint" id="portada-hint">Toca la flor</p>
       </div>
     </section>
 
@@ -202,7 +202,14 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(console.error);
+        navigator.serviceWorker.register('sw.js').then((reg) => {
+          // Fuerza el chequeo de una versión nueva del propio sw.js
+          // (sin esto, Safari puede tardar en notar que cambió).
+          reg.update();
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') reg.update();
+          });
+        }).catch(console.error);
       });
     }
   </script>

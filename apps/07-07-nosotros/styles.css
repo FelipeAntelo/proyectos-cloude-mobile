@@ -74,7 +74,7 @@ button {
    exista un listener de touchstart en el documento (ver app.js) para que
    Safari iOS aplique :active a un toque en lugar de solo al mouse. */
 button:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
   opacity: 0.72;
 }
 
@@ -194,6 +194,8 @@ button.hint {
 .mini-petal,
 .distance-line-text,
 .distance-line,
+.distance-figure,
+#garden-discovery-hint,
 .envelope-mini-flower,
 .final-date,
 .final-whisper,
@@ -304,8 +306,8 @@ button.hint {
 }
 
 .flower-wrap.pressed .flower {
-  transform: scale(0.96);
-  transition: transform 0.25s var(--ease-soft);
+  transform: scale(0.97);
+  transition: transform 0.15s var(--ease-soft);
 }
 
 /* Falling petal (final scene) */
@@ -394,7 +396,6 @@ button.hint {
 .mini-petal {
   width: 18px;
   height: 26px;
-  margin-top: 1.2rem;
   opacity: 0;
   transform: translateY(-6px) rotate(0deg);
   transition: opacity 2s ease 1s, transform 2.6s var(--ease-soft) 1s;
@@ -403,6 +404,52 @@ button.hint {
 .scene.in-view .mini-petal.show {
   opacity: 0.85;
   transform: translateY(18px) rotate(35deg);
+}
+
+/* ============================================================
+   PÉTALOS SECRETOS — contenido opcional, encontrado por curiosidad
+   ============================================================ */
+
+.secret-petal-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+  margin-top: 1.2rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Reflejo dorado muy tenue y ocasional: el único rasgo visual que distingue
+   a un pétalo secreto de uno puramente decorativo. */
+.secret-petal {
+  animation: secret-glint 9s ease-in-out infinite;
+}
+
+@keyframes secret-glint {
+  0%, 82%, 100% { filter: drop-shadow(0 0 0 rgba(198, 161, 91, 0)); }
+  91% { filter: drop-shadow(0 0 3px rgba(198, 161, 91, 0.75)); }
+}
+
+.secret-petal-wrap.discovered .secret-petal {
+  animation: none;
+}
+
+.secret-phrase {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--ink-soft);
+  opacity: 0;
+  transition: opacity 1.8s var(--ease-soft);
+  pointer-events: none;
+}
+
+.secret-phrase.show {
+  opacity: 1;
 }
 
 /* ---------- Jardín ---------- */
@@ -446,6 +493,20 @@ button.hint {
 @keyframes invite-glow {
   0%, 68%, 100% { opacity: 0; }
   82% { opacity: 0.85; }
+}
+
+/* Pista de descubrimiento: una única reacción, ligeramente distinta a la
+   respiración ambiental de arriba, para enseñar una vez que las flores se
+   tocan. Se agrega y se quita por JS — nunca queda en loop. */
+.garden-flower .flower-wrap.discovery-cue {
+  animation: discovery-lift 0.9s var(--ease-soft);
+}
+
+@keyframes discovery-lift {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(-4px); }
+  70% { transform: translateY(1px); }
+  100% { transform: translateY(0); }
 }
 
 .garden-flower:nth-child(2) { transform: translateY(-10px); }

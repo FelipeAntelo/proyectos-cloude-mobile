@@ -44,6 +44,23 @@
     });
   }
 
+  // Pétalo secreto: contenido opcional, nunca necesario para avanzar. Al
+  // tocarlo aparece una frase breve que se desvanece sola; una vez
+  // encontrado deja de tener el reflejo dorado (ya cumplió su propósito).
+  function bindSecretPetal(wrapEl, phraseEl, text, storageKey) {
+    let hideTimer;
+    bindPress(wrapEl, wrapEl);
+    if (storage.get(storageKey, false)) wrapEl.classList.add('discovered');
+    wrapEl.addEventListener('click', () => {
+      storage.set(storageKey, true);
+      wrapEl.classList.add('discovered');
+      phraseEl.textContent = text;
+      phraseEl.classList.add('show');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => phraseEl.classList.remove('show'), 3400);
+    });
+  }
+
   /* ---------------------------------------------------------------
      Fábrica de flores SVG
      --------------------------------------------------------------- */
@@ -206,6 +223,7 @@
     if (enteredScenes.has(id)) return;
     enteredScenes.add(id);
     if (id === 'scene-tiempo') runTimeSequence();
+    if (id === 'scene-jardin') runGardenDiscovery();
     if (id === 'scene-distancia') runDistanceSequence();
     if (id === 'scene-final') runFinalIntro();
   }
@@ -270,6 +288,13 @@
     setTimeout(() => petal.classList.add('show'), 200 + 2200 * d);
   }
 
+  bindSecretPetal(
+    document.getElementById('time-petal-wrap'),
+    document.getElementById('time-secret-phrase'),
+    'Qué suerte coincidir con vos.',
+    'timeSecretFound'
+  );
+
   /* ---------------------------------------------------------------
      Escena 3 — Jardín
      --------------------------------------------------------------- */
@@ -326,6 +351,42 @@
   maybeShowContinue();
 
   gardenContinue.addEventListener('click', () => scrollToScene('scene-distancia'));
+
+  bindSecretPetal(
+    document.getElementById('garden-secret-wrap'),
+    document.getElementById('garden-secret-phrase'),
+    'Me seguís encantando.',
+    'gardenSecretFound2'
+  );
+
+  // Sistema de descubrimiento: enseña una sola vez, con una microanimación
+  // (no un ícono ni una flecha) que una flor puede tocarse. Se cancela en
+  // silencio apenas la persona toca algo por su cuenta.
+  const gardenDiscoveryHint = document.getElementById('garden-discovery-hint');
+
+  function pulseDiscovery(index) {
+    const cards = document.querySelectorAll('.garden-flower');
+    const wrap = cards[index] && cards[index].querySelector('.flower-wrap');
+    if (!wrap) return;
+    wrap.classList.add('discovery-cue');
+    setTimeout(() => wrap.classList.remove('discovery-cue'), 950);
+  }
+
+  function runGardenDiscovery() {
+    if (storage.get('gardenHintSeen', false) || openedFlowers.size > 0) return;
+    storage.set('gardenHintSeen', true);
+
+    setTimeout(() => {
+      if (openedFlowers.size > 0) return;
+      pulseDiscovery(0);
+      gardenDiscoveryHint.classList.add('show');
+      setTimeout(() => gardenDiscoveryHint.classList.remove('show'), 2600);
+    }, 1000);
+
+    setTimeout(() => {
+      if (openedFlowers.size === 0) pulseDiscovery(2);
+    }, 6000);
+  }
 
   /* ---------------------------------------------------------------
      Escena 4 — La distancia

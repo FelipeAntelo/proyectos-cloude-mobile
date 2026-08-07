@@ -1,63 +1,94 @@
+/* ============================================================
+   07:07 — Nosotros
+
+   Arquitectura de interacción:
+
+   - Cada carga de la página empieza de cero. No se guarda progreso en
+     ningún lado (ni localStorage, ni sessionStorage, ni caché).
+   - Todo elemento interactivo es un <button> real del DOM. Los SVG
+     decorativos tienen pointer-events:none, así el tap siempre lo recibe
+     el botón y nunca un pétalo suelto.
+   - Cada interacción pasa por `bindAction()`, que da feedback visual en
+     pointerdown (inmediato) y ejecuta la acción en click, con una guarda
+     de estado para que no pueda dispararse dos veces.
+   ============================================================ */
+
 (() => {
   'use strict';
 
-  const SLUG = '07-07-nosotros';
-  const NS = `pwa-lab:${SLUG}:`;
-
-  /* ---------------------------------------------------------------
-     Almacenamiento (namespaced, con defaults seguros)
-     --------------------------------------------------------------- */
-  const storage = {
-    get(key, fallback) {
-      try {
-        const raw = localStorage.getItem(NS + key);
-        if (raw === null) return fallback;
-        return JSON.parse(raw);
-      } catch (e) {
-        return fallback;
-      }
-    },
-    set(key, value) {
-      try {
-        localStorage.setItem(NS + key, JSON.stringify(value));
-      } catch (e) {
-        /* almacenamiento no disponible: la experiencia sigue funcionando sin persistencia */
-      }
-    },
-  };
-
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Sin este listener, Safari iOS no aplica :active a un toque (solo al
-  // mouse), así que los botones se sienten "muertos" hasta soltar el dedo.
-  document.addEventListener('touchstart', function () {}, { passive: true });
+  /* ---------------------------------------------------------------
+     Arranque limpio
+     --------------------------------------------------------------- */
 
-  // Feedback visual inmediato (<100ms) al tocar un elemento no-<button>:
-  // la clase se agrega en pointerdown (apenas el dedo toca la pantalla),
-  // no en click (que en iOS llega recién al soltar).
-  function bindPress(triggerEl, feedbackEl) {
-    let timer;
-    triggerEl.addEventListener('pointerdown', () => {
-      feedbackEl.classList.add('pressed');
-      clearTimeout(timer);
-      timer = setTimeout(() => feedbackEl.classList.remove('pressed'), 220);
-    });
+  // Safari restaura el scroll al recargar; aquí siempre se empieza arriba.
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  window.scrollTo(0, 0);
+
+  // Restos de versiones anteriores que sí guardaban progreso. Se borran una
+  // vez para que nadie arrastre estado viejo desde una visita previa.
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith('pwa-lab:07-07-nosotros:'))
+      .forEach((k) => localStorage.removeItem(k));
+  } catch (e) {
+    /* almacenamiento no disponible: no hay nada que limpiar */
   }
 
-  // Pétalo secreto: contenido opcional, nunca necesario para avanzar. Al
-  // tocarlo aparece una frase breve que se desvanece sola; una vez
-  // encontrado deja de tener el reflejo dorado (ya cumplió su propósito).
-  function bindSecretPetal(wrapEl, phraseEl, text, storageKey) {
-    let hideTimer;
-    bindPress(wrapEl, wrapEl);
-    if (storage.get(storageKey, false)) wrapEl.classList.add('discovered');
-    wrapEl.addEventListener('click', () => {
-      storage.set(storageKey, true);
-      wrapEl.classList.add('discovered');
-      phraseEl.textContent = text;
-      phraseEl.classList.add('show');
-      clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => phraseEl.classList.remove('show'), 3400);
+  // Al volver desde el bfcache (botón atrás, cambio de app) la página
+  // conservaría el estado en memoria: se fuerza una carga limpia.
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) window.location.reload();
+  });
+
+  // Sin este listener, Safari iOS no aplica :active a un toque (solo al
+  // mouse), así que los botones se sentirían "muertos" hasta soltar el dedo.
+  document.addEventListener('touchstart', function () {}, { passive: true });
+
+  /* ---------------------------------------------------------------
+     Interacción: un único punto de entrada para todos los botones
+     --------------------------------------------------------------- */
+
+  /**
+   * Conecta un botón a su acción con feedback táctil inmediato.
+   * @param {HTMLElement} btn      el <button> real
+   * @param {Function}    action   qué hacer al activarlo
+   * @param {Object}      [opts]
+   * @param {boolean}     [opts.once=true]  si true, solo se ejecuta una vez
+   */
+  function bindAction(btn, action, opts) {
+    if (!btn) return;
+    const once = !opts || opts.once !== false;
+    let spent = false;
+    let releaseTimer = null;
+
+    // Feedback en pointerdown: se ve apenas el dedo toca, sin esperar
+    // al click (que en iOS llega recién al soltar).
+    btn.addEventListener(
+      'pointerdown',
+      () => {
+        if (spent) return;
+        btn.classList.add('pressed');
+        clearTimeout(releaseTimer);
+        releaseTimer = setTimeout(() => btn.classList.remove('pressed'), 260);
+      },
+      { passive: true }
+    );
+
+    const release = () => {
+      clearTimeout(releaseTimer);
+      btn.classList.remove('pressed');
+    };
+    btn.addEventListener('pointerup', release, { passive: true });
+    btn.addEventListener('pointercancel', release, { passive: true });
+    btn.addEventListener('pointerleave', release, { passive: true });
+
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (spent) return;
+      if (once) spent = true;
+      action();
     });
   }
 
@@ -145,29 +176,25 @@
     return svg;
   }
 
-  function bloomInstant(svg) {
-    // abre la flor sin transición (para restaurar estado ya visto)
-    svg.classList.add('no-anim');
-    svg.classList.add('bloom');
-    // eslint-disable-next-line no-unused-expressions
-    svg.getBoundingClientRect();
-    requestAnimationFrame(() => svg.classList.remove('no-anim'));
-  }
-
   const styleNoAnim = document.createElement('style');
   styleNoAnim.textContent = '.flower.no-anim, .flower.no-anim * { transition: none !important; }';
   document.head.appendChild(styleNoAnim);
 
-  /* ---------------------------------------------------------------
-     Construcción de flores en pantalla
-     --------------------------------------------------------------- */
-  const portadaFlowerHost = document.getElementById('portada-flower');
-  const portadaFlower = createFlower({ size: 108 });
-  portadaFlowerHost.appendChild(portadaFlower);
+  function bloomInstant(svg) {
+    svg.classList.add('no-anim', 'bloom');
+    svg.getBoundingClientRect(); // fuerza reflow antes de rehabilitar transiciones
+    requestAnimationFrame(() => svg.classList.remove('no-anim'));
+  }
 
-  const finalFlowerHost = document.getElementById('final-flower');
+  /* ---------------------------------------------------------------
+     Construcción de las flores
+     --------------------------------------------------------------- */
+
+  const portadaFlower = createFlower({ size: 108 });
+  document.getElementById('portada-flower').appendChild(portadaFlower);
+
   const finalFlower = createFlower({ size: 132 });
-  finalFlowerHost.appendChild(finalFlower);
+  document.getElementById('final-flower').appendChild(finalFlower);
   if (!reduceMotion) finalFlower.classList.add('sway');
 
   const gardenPalettes = [
@@ -178,55 +205,163 @@
     { outerColor: '#f4dde1', innerColor: '#d9a9ad', centerColor: '#c6a15b' },
   ];
 
-  const gardenFlowers = Array.from(document.querySelectorAll('.garden-flower')).map((wrap, i) => {
-    const host = wrap.querySelector('.flower-host');
+  const gardenButtons = Array.from(document.querySelectorAll('.garden-flower'));
+  const gardenFlowers = gardenButtons.map((btn, i) => {
     const svg = createFlower({ size: 62, ...gardenPalettes[i] });
-    host.appendChild(svg);
+    btn.querySelector('.flower-host').appendChild(svg);
     return svg;
   });
 
-  const herFlowerHost = document.getElementById('her-flower');
-  const herFlower = createFlower({ size: 40, outerCount: 5, innerCount: 4 });
-  herFlowerHost.appendChild(herFlower);
+  document.getElementById('her-flower')
+    .appendChild(createFlower({ size: 40, outerCount: 5, innerCount: 4 }));
+  document.getElementById('me-flower')
+    .appendChild(createFlower({ size: 40, outerCount: 5, innerCount: 4 }));
 
-  const meFlowerHost = document.getElementById('me-flower');
-  const meFlower = createFlower({ size: 40, outerCount: 5, innerCount: 4 });
-  meFlowerHost.appendChild(meFlower);
-
-  const envelopeFlowerHost = document.getElementById('envelope-flower');
   const envelopeFlower = createFlower({ size: 46, outerCount: 6, innerCount: 5 });
-  envelopeFlowerHost.appendChild(envelopeFlower);
+  document.getElementById('envelope-flower').appendChild(envelopeFlower);
   bloomInstant(envelopeFlower);
 
   /* ---------------------------------------------------------------
-     Revelado de escenas al hacer scroll
+     Música — arranca con el primer toque consciente (la flor de portada)
      --------------------------------------------------------------- */
-  const scenes = document.querySelectorAll('.scene');
-  // rootMargin en lugar de threshold: algunas escenas (la carta) son mucho
-  // más altas que la pantalla, así que un umbral por proporción de área
-  // nunca se cumpliría. Se dispara al cruzar la franja central del viewport.
+
+  const audioEl = document.getElementById('bg-audio');
+  const audioToggle = document.getElementById('audio-toggle');
+  const TARGET_VOLUME = 0.55;
+  const FADE_SECONDS = 2.6;
+
+  const music = {
+    started: false,
+    broken: false,
+    ctx: null,
+    gain: null,
+
+    // Se llama SIEMPRE dentro de un gesto del usuario: iOS exige que tanto
+    // play() como la creación del AudioContext ocurran de forma síncrona ahí.
+    start() {
+      if (this.started || this.broken) return;
+      this.started = true;
+
+      // iOS deja `volume` de solo lectura. Se detecta escribiéndolo: si no
+      // toma el valor, el fade se hace con Web Audio (que sí funciona ahí);
+      // si toma, basta con el volumen del elemento — camino sin riesgo.
+      audioEl.volume = 0;
+      const volumeLocked = audioEl.volume !== 0;
+
+      if (volumeLocked) this.setupWebAudio();
+
+      const playPromise = audioEl.play();
+      if (playPromise && playPromise.then) {
+        playPromise.then(() => this.onPlaying()).catch(() => this.fail());
+      } else {
+        this.onPlaying();
+      }
+
+      this.fadeIn();
+    },
+
+    setupWebAudio() {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx || this.ctx) return;
+      try {
+        this.ctx = new Ctx();
+        const source = this.ctx.createMediaElementSource(audioEl);
+        this.gain = this.ctx.createGain();
+        this.gain.gain.value = 0.0001;
+        source.connect(this.gain);
+        this.gain.connect(this.ctx.destination);
+      } catch (e) {
+        this.ctx = null;
+        this.gain = null;
+        audioEl.volume = TARGET_VOLUME; // sin fade, pero con sonido
+      }
+    },
+
+    fadeIn() {
+      if (this.ctx && this.gain) {
+        const ramp = () => {
+          const now = this.ctx.currentTime;
+          this.gain.gain.cancelScheduledValues(now);
+          this.gain.gain.setValueAtTime(0.0001, now);
+          this.gain.gain.exponentialRampToValueAtTime(TARGET_VOLUME, now + FADE_SECONDS);
+        };
+        if (this.ctx.state === 'suspended') this.ctx.resume().then(ramp).catch(ramp);
+        else ramp();
+        return;
+      }
+      // Fade por volumen del elemento (navegadores que sí lo permiten).
+      const startedAt = performance.now();
+      const step = (now) => {
+        const t = Math.min(1, (now - startedAt) / (FADE_SECONDS * 1000));
+        audioEl.volume = TARGET_VOLUME * t * t;
+        if (t < 1 && !audioEl.paused) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    },
+
+    onPlaying() {
+      audioToggle.hidden = false;
+      audioToggle.dataset.playing = 'true';
+      requestAnimationFrame(() => audioToggle.classList.add('available'));
+    },
+
+    // Si el MP3 falta o Safari rechaza la reproducción, la experiencia
+    // sigue igual y no queda ningún control roto en pantalla.
+    fail() {
+      this.started = false;
+      this.broken = true;
+      audioToggle.hidden = true;
+      audioToggle.classList.remove('available');
+    },
+
+    toggle() {
+      if (audioEl.paused) {
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+        const p = audioEl.play();
+        if (p && p.catch) p.catch(() => {});
+        audioToggle.dataset.playing = 'true';
+        audioToggle.setAttribute('aria-label', 'Pausar música');
+      } else {
+        audioEl.pause();
+        audioToggle.dataset.playing = 'false';
+        audioToggle.setAttribute('aria-label', 'Reproducir música');
+      }
+    },
+  };
+
+  audioEl.addEventListener('error', () => music.fail(), true);
+
+  bindAction(audioToggle, () => music.toggle(), { once: false });
+
+  /* ---------------------------------------------------------------
+     Escenas — revelado al entrar en pantalla
+     --------------------------------------------------------------- */
+
+  const sceneCallbacks = {
+    'scene-tiempo': runTimeSequence,
+    'scene-jardin': runGardenDiscovery,
+    'scene-final': runFinalIntro,
+  };
+  const scenesEntered = new Set();
+
+  // rootMargin en vez de un threshold alto: hay escenas (la carta) mucho
+  // más altas que el viewport, donde un umbral por proporción de área nunca
+  // llegaría a cumplirse. Esto dispara al cruzar la franja central.
   const sceneObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('in-view');
-          onSceneEnter(entry.target.id);
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('in-view');
+        const id = entry.target.id;
+        if (sceneCallbacks[id] && !scenesEntered.has(id)) {
+          scenesEntered.add(id);
+          sceneCallbacks[id]();
         }
       });
     },
-    { threshold: 0, rootMargin: '-35% 0px -35% 0px' }
+    { threshold: 0, rootMargin: '-15% 0px -15% 0px' }
   );
-  scenes.forEach((scene) => sceneObserver.observe(scene));
-
-  const enteredScenes = new Set();
-  function onSceneEnter(id) {
-    if (enteredScenes.has(id)) return;
-    enteredScenes.add(id);
-    if (id === 'scene-tiempo') runTimeSequence();
-    if (id === 'scene-jardin') runGardenDiscovery();
-    if (id === 'scene-distancia') runDistanceSequence();
-    if (id === 'scene-final') runFinalIntro();
-  }
+  document.querySelectorAll('.scene').forEach((scene) => sceneObserver.observe(scene));
 
   function scrollToScene(id) {
     const target = document.getElementById(id);
@@ -236,46 +371,29 @@
   /* ---------------------------------------------------------------
      Escena 1 — Portada
      --------------------------------------------------------------- */
-  const portadaWrap = document.getElementById('portada-flower-wrap');
+
+  const portadaBtn = document.getElementById('portada-flower-btn');
   const portadaHint = document.getElementById('portada-hint');
 
-  let portadaState = 'idle'; // idle | animating | completed
+  bindAction(portadaBtn, () => {
+    // Primer gesto consciente: también es el que puede iniciar la música.
+    music.start();
 
-  function openPortada(fromRestore) {
+    portadaBtn.classList.add('bloomed');
     portadaFlower.classList.add('bloom');
-    portadaWrap.classList.add('bloomed'); // detiene el halo/pulso de invitación
-    if (!reduceMotion) {
-      setTimeout(() => portadaFlower.classList.add('sway'), 2200);
-    }
     portadaHint.classList.remove('show');
-    if (!fromRestore) {
-      storage.set('portadaBloomed', true);
-      setTimeout(() => {
-        portadaState = 'completed';
-        scrollToScene('scene-tiempo');
-      }, reduceMotion ? 300 : 2100);
-    }
-  }
+    portadaBtn.setAttribute('aria-label', 'La flor ya se abrió');
 
-  bindPress(portadaWrap, portadaWrap);
-  portadaWrap.addEventListener('click', () => {
-    if (portadaState !== 'idle') return;
-    portadaState = 'animating';
-    openPortada(false);
+    if (!reduceMotion) setTimeout(() => portadaFlower.classList.add('sway'), 2200);
+    setTimeout(() => scrollToScene('scene-tiempo'), reduceMotion ? 350 : 2100);
   });
 
   setTimeout(() => portadaHint.classList.add('show'), 900);
 
-  if (storage.get('portadaBloomed', false)) {
-    portadaState = 'completed';
-    bloomInstant(portadaFlower);
-    portadaWrap.classList.add('bloomed');
-    portadaHint.classList.remove('show');
-  }
-
   /* ---------------------------------------------------------------
      Escena 2 — Nuestro tiempo
      --------------------------------------------------------------- */
+
   function runTimeSequence() {
     const years = document.getElementById('time-years');
     const months = document.getElementById('time-months');
@@ -288,16 +406,30 @@
     setTimeout(() => petal.classList.add('show'), 200 + 2200 * d);
   }
 
-  bindSecretPetal(
-    document.getElementById('time-petal-wrap'),
-    document.getElementById('time-secret-phrase'),
-    'Qué suerte coincidir con vos.',
-    'timeSecretFound'
-  );
+  /* ---------------------------------------------------------------
+     Pétalos secretos — opcionales, nunca bloquean el recorrido
+     --------------------------------------------------------------- */
+
+  function bindSecretPetal(btnId, phraseId, text) {
+    const btn = document.getElementById(btnId);
+    const phrase = document.getElementById(phraseId);
+    if (!btn || !phrase) return;
+
+    bindAction(btn, () => {
+      btn.classList.add('discovered');
+      phrase.textContent = text;
+      requestAnimationFrame(() => phrase.classList.add('show'));
+      setTimeout(() => phrase.classList.remove('show'), 3600);
+    });
+  }
+
+  bindSecretPetal('time-petal-btn', 'time-secret-phrase', 'Qué suerte coincidir con vos.');
+  bindSecretPetal('garden-petal-btn', 'garden-secret-phrase', 'Me seguís encantando.');
 
   /* ---------------------------------------------------------------
      Escena 3 — Jardín
      --------------------------------------------------------------- */
+
   const gardenData = [
     { title: 'Tu forma de querer', text: 'Gracias por quererme incluso cuando quererme no siempre ha sido sencillo.' },
     { title: 'Tu fortaleza', text: 'Admiro profundamente a la mujer que sos, todo lo que perseguís y la fuerza con la que seguís adelante.' },
@@ -310,7 +442,8 @@
   const gardenMsgTitle = gardenMessage.querySelector('.msg-title');
   const gardenMsgText = gardenMessage.querySelector('.msg-text');
   const gardenContinue = document.getElementById('garden-continue');
-  let openedFlowers = new Set(storage.get('gardenOpened', []));
+  const gardenHint = document.getElementById('garden-discovery-hint');
+  const openedFlowers = new Set();
 
   function showGardenMessage(i) {
     gardenMessage.classList.remove('show');
@@ -321,232 +454,165 @@
     });
   }
 
-  function maybeShowContinue() {
-    if (openedFlowers.size >= gardenData.length && !gardenContinue.classList.contains('show')) {
-      gardenContinue.classList.add('show');
-      setTimeout(() => gardenContinue.classList.add('invite'), 1700);
-    }
-  }
-
-  document.querySelectorAll('.garden-flower').forEach((card, i) => {
+  gardenButtons.forEach((btn, i) => {
     const svg = gardenFlowers[i];
-    const innerWrap = card.querySelector('.flower-wrap');
-    if (openedFlowers.has(i)) {
-      bloomInstant(svg);
-      card.dataset.open = 'true';
-    }
-    bindPress(card, innerWrap);
-    card.addEventListener('click', () => {
-      if (!svg.classList.contains('bloom')) {
-        svg.classList.add('bloom');
-        card.dataset.open = 'true';
-        openedFlowers.add(i);
-        storage.set('gardenOpened', Array.from(openedFlowers));
-        maybeShowContinue();
-      }
-      showGardenMessage(i);
-    });
+    btn.setAttribute('aria-label', `Descubrir: ${gardenData[i].title}`);
+
+    // once:false — se puede volver a tocar una flor ya abierta para releer
+    // su mensaje; la apertura en sí solo ocurre la primera vez.
+    bindAction(
+      btn,
+      () => {
+        if (!openedFlowers.has(i)) {
+          openedFlowers.add(i);
+          svg.classList.add('bloom');
+          btn.dataset.open = 'true';
+          gardenHint.classList.remove('show');
+          if (openedFlowers.size >= gardenData.length && !gardenContinue.classList.contains('show')) {
+            gardenContinue.classList.add('show');
+            setTimeout(() => gardenContinue.classList.add('invite'), 1700);
+          }
+        }
+        showGardenMessage(i);
+      },
+      { once: false }
+    );
   });
 
-  maybeShowContinue();
-
-  gardenContinue.addEventListener('click', () => scrollToScene('scene-distancia'));
-
-  bindSecretPetal(
-    document.getElementById('garden-secret-wrap'),
-    document.getElementById('garden-secret-phrase'),
-    'Me seguís encantando.',
-    'gardenSecretFound2'
-  );
+  bindAction(gardenContinue, () => scrollToScene('scene-distancia'), { once: false });
 
   // Sistema de descubrimiento: enseña una sola vez, con una microanimación
-  // (no un ícono ni una flecha) que una flor puede tocarse. Se cancela en
-  // silencio apenas la persona toca algo por su cuenta.
-  const gardenDiscoveryHint = document.getElementById('garden-discovery-hint');
-
+  // (no un ícono ni una flecha), que las flores se tocan.
   function pulseDiscovery(index) {
-    const cards = document.querySelectorAll('.garden-flower');
-    const wrap = cards[index] && cards[index].querySelector('.flower-wrap');
-    if (!wrap) return;
-    wrap.classList.add('discovery-cue');
-    setTimeout(() => wrap.classList.remove('discovery-cue'), 950);
+    const host = gardenButtons[index] && gardenButtons[index].querySelector('.flower-host');
+    if (!host) return;
+    host.classList.add('discovery-cue');
+    setTimeout(() => host.classList.remove('discovery-cue'), 950);
   }
 
   function runGardenDiscovery() {
-    if (storage.get('gardenHintSeen', false) || openedFlowers.size > 0) return;
-    storage.set('gardenHintSeen', true);
-
     setTimeout(() => {
       if (openedFlowers.size > 0) return;
       pulseDiscovery(0);
-      gardenDiscoveryHint.classList.add('show');
-      setTimeout(() => gardenDiscoveryHint.classList.remove('show'), 2600);
+      gardenHint.classList.add('show');
+      setTimeout(() => gardenHint.classList.remove('show'), 2800);
     }, 1000);
 
+    // Segunda pista silenciosa, sin texto, si todavía no tocó nada.
     setTimeout(() => {
       if (openedFlowers.size === 0) pulseDiscovery(2);
     }, 6000);
   }
 
   /* ---------------------------------------------------------------
-     Escena 4 — La distancia
+     Escena 4 — La distancia (secuencia narrativa de ~8s)
      --------------------------------------------------------------- */
+
   const distanceStage = document.getElementById('distance-stage');
-  const distanceLines = document.querySelectorAll('.distance-line-text');
+  const distTexts = [
+    document.getElementById('dist-text-1'),
+    document.getElementById('dist-text-2'),
+    document.getElementById('dist-text-3'),
+  ];
 
   function runDistanceSequence() {
-    const already = storage.get('distanceSeen', false);
-    if (already || reduceMotion) {
-      distanceLines.forEach((l) => l.classList.add('show'));
-      distanceStage.classList.add('together');
-      storage.set('distanceSeen', true);
+    if (reduceMotion) {
+      distTexts.forEach((t) => t.classList.add('show'));
+      distanceStage.dataset.state = 'together';
       return;
     }
-    setTimeout(() => distanceLines[0].classList.add('show'), 200);
-    setTimeout(() => distanceStage.classList.add('apart'), 1200);
-    setTimeout(() => distanceLines[1].classList.add('show'), 2400);
-    setTimeout(() => {
-      distanceStage.classList.remove('apart');
-      distanceStage.classList.add('together');
-    }, 4400);
-    setTimeout(() => {
-      distanceLines[2].classList.add('show');
-      storage.set('distanceSeen', true);
-    }, 6600);
+
+    const at = (ms, fn) => setTimeout(fn, ms);
+
+    at(300, () => distTexts[0].classList.add('show'));        // "…querernos también a la distancia."
+    at(1400, () => { distanceStage.dataset.state = 'apart'; }); // se separan (2.6s)
+    at(3600, () => { distanceStage.dataset.state = 'linked'; }); // aparece el hilo dorado
+    at(3900, () => distTexts[1].classList.add('show'));        // "Unas cuantas horas de camino…"
+    at(6000, () => { distanceStage.dataset.state = 'closing'; }); // vuelven a acercarse
+    at(8200, () => {
+      distanceStage.dataset.state = 'together';
+      distTexts[2].classList.add('show');                      // "…pero nunca cambiaron dónde quiero estar."
+    });
   }
+
+  // Se observa el escenario (pequeño, siempre menor que el viewport) en
+  // lugar de la sección: así la animación arranca justo cuando las dos
+  // flores están realmente a la vista.
+  const distanceObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        distanceObserver.disconnect(); // una sola vez por carga de página
+        runDistanceSequence();
+      });
+    },
+    { threshold: 0.6 }
+  );
+  distanceObserver.observe(distanceStage);
 
   /* ---------------------------------------------------------------
      Escena 5 — La carta
      --------------------------------------------------------------- */
+
   const envelope = document.getElementById('envelope');
-  const envelopeWrap = document.getElementById('envelope-wrap');
-  const openButton = document.getElementById('open-letter');
+  const envelopeBtn = document.getElementById('envelope-btn');
+  const openLetterBtn = document.getElementById('open-letter');
   const letter = document.getElementById('letter');
+  let letterOpened = false;
 
-  let letterState = 'idle'; // idle | opening | opened
+  function openLetter() {
+    if (letterOpened) return;
+    letterOpened = true;
 
-  function openLetter(fromRestore) {
-    envelope.classList.add('open');
-    letter.classList.add('show');
-    if (fromRestore) {
-      letterState = 'opened';
-      envelopeWrap.style.display = 'none';
-      openButton.style.display = 'none';
-    } else {
-      storage.set('letterOpened', true);
-      setTimeout(() => {
-        letterState = 'opened';
-        envelopeWrap.style.display = 'none';
-        openButton.style.display = 'none';
-      }, 900);
-    }
+    envelopeBtn.classList.add('opened');
+    envelope.classList.add('open');           // solapa + hoja que sube
+    envelopeBtn.disabled = true;
+    openLetterBtn.classList.remove('show');
+
+    // El sobre se desvanece cuando la hoja ya salió, y entonces entra la carta.
+    setTimeout(() => envelopeBtn.classList.add('opening'), 20);
+    setTimeout(() => letter.classList.add('show'), reduceMotion ? 250 : 1150);
+    setTimeout(() => {
+      envelopeBtn.style.display = 'none';
+      openLetterBtn.style.display = 'none';
+    }, reduceMotion ? 500 : 1700);
   }
 
-  // Tocar el sobre entero abre la carta, no solo el texto "Abrir" — una
-  // sola guarda de estado evita que dos toques casi simultáneos (sobre +
-  // botón) disparen la animación de apertura dos veces.
-  function handleOpenLetter() {
-    if (letterState !== 'idle') return;
-    letterState = 'opening';
-    openLetter(false);
-  }
-
-  bindPress(envelopeWrap, envelopeWrap);
-  envelopeWrap.addEventListener('click', handleOpenLetter);
-  openButton.addEventListener('click', handleOpenLetter);
-
-  if (storage.get('letterOpened', false)) {
-    openLetter(true);
-  }
+  // El sobre entero y el texto "Abrir" hacen exactamente lo mismo.
+  bindAction(envelopeBtn, openLetter);
+  bindAction(openLetterBtn, openLetter);
 
   /* ---------------------------------------------------------------
      Escena 6 — Final
      --------------------------------------------------------------- */
+
   const finalLine1 = document.getElementById('final-line-1');
   const finalDate = document.getElementById('final-date');
   const finalMore = document.getElementById('final-more');
   const finalWhisper = document.getElementById('final-whisper');
 
-  let finalState = storage.get('finalReached', false) ? 'completed' : 'idle'; // idle | animating | completed
-
   function runFinalIntro() {
     bloomInstant(finalFlower);
     setTimeout(() => finalLine1.classList.add('show'), 300);
     setTimeout(() => finalDate.classList.add('show'), 1200);
-    if (finalState === 'idle') {
-      setTimeout(() => {
-        finalMore.classList.add('show');
-        setTimeout(() => finalMore.classList.add('invite'), 1700);
-      }, 2600);
-    } else {
-      revealWhisper(true);
-    }
+    setTimeout(() => {
+      finalMore.classList.add('show');
+      setTimeout(() => finalMore.classList.add('invite'), 1700);
+    }, 2600);
   }
 
-  function pickFinalPetal() {
-    const petals = finalFlower.querySelectorAll('.outer-petals .petal');
-    return petals.length ? petals[0] : null;
-  }
-
-  function revealWhisper(instant) {
-    finalMore.style.display = 'none';
-    if (instant) {
-      finalWhisper.classList.add('show');
-    } else {
-      setTimeout(() => finalWhisper.classList.add('show'), 2200);
-    }
-  }
-
-  finalMore.addEventListener('click', () => {
-    if (finalState !== 'idle') return;
-    finalState = 'animating';
+  bindAction(finalMore, () => {
     finalMore.classList.remove('show', 'invite');
-    const finalPetal = pickFinalPetal();
-    if (finalPetal) {
-      finalPetal.classList.add('petal-fall');
+
+    const petal = finalFlower.querySelector('.outer-petals .petal');
+    if (petal) {
+      petal.classList.add('petal-fall');
       requestAnimationFrame(() => {
-        setTimeout(() => finalPetal.classList.add('falling'), 30);
+        setTimeout(() => petal.classList.add('falling'), 30);
       });
     }
-    storage.set('finalReached', true);
-    finalState = 'completed';
-    revealWhisper(false);
+
+    setTimeout(() => { finalMore.style.display = 'none'; }, 400);
+    setTimeout(() => finalWhisper.classList.add('show'), reduceMotion ? 400 : 2200);
   });
-
-  if (finalState === 'completed') {
-    setTimeout(() => {
-      const p = pickFinalPetal();
-      if (p) p.classList.add('petal-fall', 'falling');
-    }, 50);
-  }
-
-  /* ---------------------------------------------------------------
-     Audio — arquitectura opcional, discreta
-     --------------------------------------------------------------- */
-  const audioToggle = document.getElementById('audio-toggle');
-  const bgAudio = document.getElementById('bg-audio');
-
-  bgAudio.addEventListener(
-    'error',
-    () => {
-      audioToggle.classList.remove('available');
-    },
-    true
-  );
-
-  bgAudio.addEventListener('canplaythrough', () => {
-    audioToggle.classList.add('available');
-  });
-
-  audioToggle.addEventListener('click', () => {
-    if (bgAudio.paused) {
-      bgAudio.play().catch(() => {});
-      audioToggle.dataset.playing = 'true';
-    } else {
-      bgAudio.pause();
-      audioToggle.dataset.playing = 'false';
-    }
-  });
-
-  bgAudio.load();
 })();

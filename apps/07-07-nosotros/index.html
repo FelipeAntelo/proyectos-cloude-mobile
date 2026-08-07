@@ -21,15 +21,22 @@
 </head>
 <body>
 
-  <button class="audio-toggle" id="audio-toggle" type="button" aria-label="Reproducir música">
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M9 18V5l10-2v13" stroke="#c6a15b" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="6.5" cy="18" r="2.5" stroke="#c6a15b" stroke-width="1.4"/>
-      <circle cx="16.5" cy="16" r="2.5" stroke="#c6a15b" stroke-width="1.4"/>
+  <!-- Control de audio: oculto hasta que el archivo se confirma reproducible -->
+  <button class="audio-toggle" id="audio-toggle" type="button" aria-label="Pausar música" hidden>
+    <svg class="icon-playing" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 18V5l10-2v13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.4"/>
+      <circle cx="16.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.4"/>
+    </svg>
+    <svg class="icon-muted" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 18V5l10-2v13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.4"/>
+      <circle cx="16.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M3 3l18 18" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
     </svg>
   </button>
-  <audio id="bg-audio" loop preload="metadata">
-    <source src="./audio/tema.mp3" type="audio/mpeg" />
+  <audio id="bg-audio" loop preload="metadata" playsinline>
+    <source src="assets/music.mp3" type="audio/mpeg" />
   </audio>
 
   <main class="experience">
@@ -37,9 +44,9 @@
     <!-- 1. PORTADA -->
     <section class="scene scene-portada" id="scene-portada">
       <div class="scene-inner">
-        <div class="flower-wrap tappable" id="portada-flower-wrap">
-          <div id="portada-flower"></div>
-        </div>
+        <button class="flower-button" id="portada-flower-btn" type="button" aria-label="Tocar la flor para comenzar">
+          <span class="flower-host" id="portada-flower"></span>
+        </button>
         <p class="date-mark">07 · 07 · 2022</p>
         <p class="title-serif line-md">Hay cosas que todavía quiero seguir cuidando.</p>
         <p class="hint" id="portada-hint">Toca la flor</p>
@@ -61,12 +68,15 @@
           </div>
         </div>
         <p class="title-serif line-md time-choose" id="time-choose">Y todavía te escogería.</p>
-        <div class="secret-petal-wrap time-petal-wrap" id="time-petal-wrap">
-          <svg class="mini-petal secret-petal" id="time-petal" viewBox="0 0 20 30" aria-hidden="true">
-            <path d="M10,0 C2,5 1,16 10,30 C19,16 18,5 10,0 Z" fill="#d9a9ad" opacity="0.8"/>
-          </svg>
-        </div>
-        <p class="secret-phrase" id="time-secret-phrase"></p>
+
+        <button class="secret-petal-btn" id="time-petal-btn" type="button" aria-label="Un pequeño secreto">
+          <span class="petal-hit">
+            <svg class="mini-petal secret-petal" id="time-petal" viewBox="0 0 20 30" aria-hidden="true">
+              <path d="M10,0 C2,5 1,16 10,30 C19,16 18,5 10,0 Z" fill="#d9a9ad" opacity="0.8"/>
+            </svg>
+          </span>
+        </button>
+        <p class="secret-phrase" id="time-secret-phrase" aria-live="polite"></p>
       </div>
     </section>
 
@@ -77,41 +87,43 @@
         <p class="line-soft">Cada una guarda algo que quería decirte.</p>
 
         <div class="garden">
-          <div class="garden-flower" data-open="false">
-            <div class="flower-wrap tappable flower-host"></div>
+          <button class="garden-flower" type="button" data-open="false" data-index="0">
+            <span class="flower-host"></span>
             <span class="flower-name">Tu forma de querer</span>
-          </div>
-          <div class="garden-flower" data-open="false">
-            <div class="flower-wrap tappable flower-host"></div>
+          </button>
+          <button class="garden-flower" type="button" data-open="false" data-index="1">
+            <span class="flower-host"></span>
             <span class="flower-name">Tu fortaleza</span>
-          </div>
-          <div class="garden-flower" data-open="false">
-            <div class="flower-wrap tappable flower-host"></div>
+          </button>
+          <button class="garden-flower" type="button" data-open="false" data-index="2">
+            <span class="flower-host"></span>
             <span class="flower-name">Tu paciencia</span>
-          </div>
-          <div class="garden-flower" data-open="false">
-            <div class="flower-wrap tappable flower-host"></div>
+          </button>
+          <button class="garden-flower" type="button" data-open="false" data-index="3">
+            <span class="flower-host"></span>
             <span class="flower-name">Tu compañía</span>
-          </div>
-          <div class="garden-flower" data-open="false">
-            <div class="flower-wrap tappable flower-host"></div>
+          </button>
+          <button class="garden-flower" type="button" data-open="false" data-index="4">
+            <span class="flower-host"></span>
             <span class="flower-name">Tú</span>
-          </div>
+          </button>
         </div>
 
         <p class="hint" id="garden-discovery-hint">Hay cosas por descubrir…</p>
 
-        <div class="garden-message" id="garden-message">
+        <div class="garden-message" id="garden-message" aria-live="polite">
           <p class="msg-title"></p>
           <p class="msg-text"></p>
         </div>
 
-        <div class="secret-petal-wrap garden-petal-wrap" id="garden-secret-wrap">
-          <svg class="mini-petal secret-petal" viewBox="0 0 20 30" aria-hidden="true">
-            <path d="M10,0 C2,5 1,16 10,30 C19,16 18,5 10,0 Z" fill="#c98f96" opacity="0.85"/>
-          </svg>
-        </div>
-        <p class="secret-phrase" id="garden-secret-phrase"></p>
+        <button class="secret-petal-btn" id="garden-petal-btn" type="button" aria-label="Un pequeño secreto">
+          <span class="petal-hit">
+            <svg class="mini-petal secret-petal is-static" viewBox="0 0 20 30" aria-hidden="true">
+              <path d="M10,0 C2,5 1,16 10,30 C19,16 18,5 10,0 Z" fill="#c98f96" opacity="0.85"/>
+            </svg>
+          </span>
+        </button>
+        <p class="secret-phrase" id="garden-secret-phrase" aria-live="polite"></p>
 
         <button class="hint garden-continue" id="garden-continue" type="button">Seguir</button>
       </div>
@@ -121,16 +133,19 @@
     <section class="scene" id="scene-distancia">
       <div class="scene-inner">
         <div class="distance-lines">
-          <p class="distance-line-text">Últimamente nos ha tocado aprender a querernos también a la distancia.</p>
-          <p class="distance-line-text">Unas cuantas horas de camino cambiaron nuestros días…</p>
-          <p class="distance-line-text">…pero nunca cambiaron dónde quiero estar.</p>
+          <p class="distance-line-text" id="dist-text-1">Últimamente nos ha tocado aprender a querernos también a la distancia.</p>
+          <p class="distance-line-text" id="dist-text-2">Unas cuantas horas de camino cambiaron nuestros días…</p>
+          <p class="distance-line-text" id="dist-text-3">…pero nunca cambiaron dónde quiero estar.</p>
         </div>
 
-        <div class="distance-stage" id="distance-stage">
-          <div class="distance-figure her" id="her-flower"></div>
-          <div class="distance-line"></div>
-          <div class="distance-figure me" id="me-flower"></div>
+        <div class="distance-stage" id="distance-stage" data-state="near">
+          <div class="distance-track">
+            <span class="distance-line" aria-hidden="true"></span>
+            <span class="distance-figure her" id="her-flower" aria-hidden="true"></span>
+            <span class="distance-figure me" id="me-flower" aria-hidden="true"></span>
+          </div>
         </div>
+        <span class="scene-trigger" id="trigger-distancia" aria-hidden="true"></span>
       </div>
     </section>
 
@@ -139,13 +154,14 @@
       <div class="scene-inner envelope-scene-inner">
         <p class="title-serif line-md">Hay algo que prefiero decirte sin resumirlo.</p>
 
-        <div class="envelope-wrap" id="envelope-wrap">
-          <div class="envelope-mini-flower" id="envelope-flower"></div>
-          <div class="envelope" id="envelope">
-            <div class="envelope-flap"></div>
-            <div class="envelope-body"></div>
-          </div>
-        </div>
+        <button class="envelope-button" id="envelope-btn" type="button" aria-label="Abrir la carta">
+          <span class="envelope-mini-flower" id="envelope-flower" aria-hidden="true"></span>
+          <span class="envelope" id="envelope" aria-hidden="true">
+            <span class="envelope-sheet"></span>
+            <span class="envelope-body"></span>
+            <span class="envelope-flap"></span>
+          </span>
+        </button>
 
         <button class="hint show open-hint" id="open-letter" type="button">Abrir</button>
 
@@ -158,11 +174,23 @@
 
           <p>Gracias por ser la mujer que has sido conmigo. Gracias por entenderme tantas veces, por acompañarme, por tenerme paciencia y por seguir apostando por nosotros incluso cuando no siempre ha sido fácil.</p>
 
-          <p>Admiro muchísimo a la mujer que sos. Me encanta verte crecer, perseguir lo tuyo, esforzarte y convertirte cada día más en esa profesional y esa persona increíble que siempre vi en vos. Y aunque ahora tus prácticas muchas veces nos obliguen a vivir nuestros días de una manera diferente, quiero que sepás que me siento profundamente orgulloso de verte avanzando y construyendo tu propio camino.</p>
+          <p>Admiro muchísimo a la mujer que sos. Me encanta verte crecer, perseguir lo tuyo y seguir construyendo tu propio camino.</p>
 
-          <p>Sé también que últimamente quizá no estamos viviendo nuestra etapa más bonita. No quiero disfrazarlo ni convertir este detalle en una manera de hacer como si absolutamente todo fuera perfecto. Porque amar a alguien tampoco debería significar fingir que todos los días son perfectos.</p>
+          <p>Sé que esta etapa de tu vida trae cosas nuevas, cambios y también momentos en los que nos toca estar un poquito más lejos de lo que estábamos acostumbrados.</p>
 
-          <p>Simplemente quiero que recuerdes algo.</p>
+          <p>Y aunque todavía estemos aprendiendo a vivir esta nueva dinámica, me hace feliz verte avanzar, descubrir nuevas partes de vos y construir poco a poco todo eso que querés para tu vida.</p>
+
+          <p>Estoy orgulloso de vos, no solamente por lo que hacés, sino por la mujer que sos mientras lo hacés.</p>
+
+          <p>Sé también que estamos viviendo una etapa diferente.</p>
+
+          <p>Todavía estamos aprendiendo a acostumbrarnos a muchos cambios, a una dinámica nueva, a los días en los que estamos cerca y a esos otros en los que toca extrañarnos un poquito más.</p>
+
+          <p>Y sí, quizá en medio de todo eso hemos tenido nuestros altos y bajos. Hemos tenido días más fáciles y otros en los que nos ha costado un poquito más encontrarnos.</p>
+
+          <p>Pero no quiero que este detalle pretenda que todo tiene que ser perfecto.</p>
+
+          <p>Quiero que sea justamente lo contrario: una forma de recordarte que incluso mientras aprendemos a vivir esta etapa nueva, hay algo que para mí sigue estando muy claro.</p>
 
           <p class="beat gold">Yo te sigo eligiendo.</p>
 
@@ -180,7 +208,7 @@
 
           <p class="beat gold">Te amo muchísimo.</p>
 
-          <p class="signature">— Tuyo</p>
+          <p class="signature">— Tu amorcito</p>
         </article>
       </div>
     </section>
@@ -188,7 +216,7 @@
     <!-- 6. FINAL -->
     <section class="scene" id="scene-final">
       <div class="scene-inner">
-        <div class="flower-wrap" id="final-flower"></div>
+        <div class="flower-host" id="final-flower"></div>
         <p class="title-serif line-md final-line" id="final-line-1">Hoy también te elijo.</p>
         <p class="final-date" id="final-date">07 · 08 · 2026</p>
         <button class="hint final-line" id="final-more" type="button">Una más…</button>
@@ -200,17 +228,19 @@
   </main>
 
   <script>
+    // Etapa de desarrollo: sin service worker. Se desregistra cualquier SW
+    // previo y se borra su caché, para que un deployment nuevo siempre se
+    // vea al recargar (sin esto, un SW viejo seguiría sirviendo la versión
+    // anterior aunque el HTML nuevo ya no lo registre).
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').then((reg) => {
-          // Fuerza el chequeo de una versión nueva del propio sw.js
-          // (sin esto, Safari puede tardar en notar que cambió).
-          reg.update();
-          document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') reg.update();
-          });
-        }).catch(console.error);
-      });
+      navigator.serviceWorker.getRegistrations()
+        .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+        .catch(() => {});
+    }
+    if (window.caches && caches.keys) {
+      caches.keys()
+        .then((keys) => Promise.all(keys.filter((k) => k.startsWith('07-07-nosotros')).map((k) => caches.delete(k))))
+        .catch(() => {});
     }
   </script>
   <script src="app.js" defer></script>

@@ -28,6 +28,22 @@
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // Sin este listener, Safari iOS no aplica :active a un toque (solo al
+  // mouse), así que los botones se sienten "muertos" hasta soltar el dedo.
+  document.addEventListener('touchstart', function () {}, { passive: true });
+
+  // Feedback visual inmediato (<100ms) al tocar un elemento no-<button>:
+  // la clase se agrega en pointerdown (apenas el dedo toca la pantalla),
+  // no en click (que en iOS llega recién al soltar).
+  function bindPress(triggerEl, feedbackEl) {
+    let timer;
+    triggerEl.addEventListener('pointerdown', () => {
+      feedbackEl.classList.add('pressed');
+      clearTimeout(timer);
+      timer = setTimeout(() => feedbackEl.classList.remove('pressed'), 220);
+    });
+  }
+
   /* ---------------------------------------------------------------
      Fábrica de flores SVG
      --------------------------------------------------------------- */
@@ -205,29 +221,37 @@
   const portadaWrap = document.getElementById('portada-flower-wrap');
   const portadaHint = document.getElementById('portada-hint');
 
+  let portadaState = 'idle'; // idle | animating | completed
+
   function openPortada(fromRestore) {
     portadaFlower.classList.add('bloom');
+    portadaWrap.classList.add('bloomed'); // detiene el halo/pulso de invitación
     if (!reduceMotion) {
       setTimeout(() => portadaFlower.classList.add('sway'), 2200);
     }
     portadaHint.classList.remove('show');
     if (!fromRestore) {
       storage.set('portadaBloomed', true);
-      setTimeout(() => scrollToScene('scene-tiempo'), reduceMotion ? 300 : 2100);
+      setTimeout(() => {
+        portadaState = 'completed';
+        scrollToScene('scene-tiempo');
+      }, reduceMotion ? 300 : 2100);
     }
   }
 
+  bindPress(portadaWrap, portadaWrap);
   portadaWrap.addEventListener('click', () => {
-    if (portadaFlower.classList.contains('bloom')) return;
-    portadaWrap.classList.add('pressed');
-    setTimeout(() => portadaWrap.classList.remove('pressed'), 250);
+    if (portadaState !== 'idle') return;
+    portadaState = 'animating';
     openPortada(false);
   });
 
   setTimeout(() => portadaHint.classList.add('show'), 900);
 
   if (storage.get('portadaBloomed', false)) {
+    portadaState = 'completed';
     bloomInstant(portadaFlower);
+    portadaWrap.classList.add('bloomed');
     portadaHint.classList.remove('show');
   }
 
@@ -273,21 +297,24 @@
   }
 
   function maybeShowContinue() {
-    if (openedFlowers.size >= gardenData.length) {
+    if (openedFlowers.size >= gardenData.length && !gardenContinue.classList.contains('show')) {
       gardenContinue.classList.add('show');
+      setTimeout(() => gardenContinue.classList.add('invite'), 1700);
     }
   }
 
-  document.querySelectorAll('.garden-flower').forEach((wrap, i) => {
+  document.querySelectorAll('.garden-flower').forEach((card, i) => {
     const svg = gardenFlowers[i];
+    const innerWrap = card.querySelector('.flower-wrap');
     if (openedFlowers.has(i)) {
       bloomInstant(svg);
-      wrap.dataset.open = 'true';
+      card.dataset.open = 'true';
     }
-    wrap.addEventListener('click', () => {
+    bindPress(card, innerWrap);
+    card.addEventListener('click', () => {
       if (!svg.classList.contains('bloom')) {
         svg.classList.add('bloom');
-        wrap.dataset.open = 'true';
+        card.dataset.open = 'true';
         openedFlowers.add(i);
         storage.set('gardenOpened', Array.from(openedFlowers));
         maybeShowContinue();
@@ -335,22 +362,37 @@
   const openButton = document.getElementById('open-letter');
   const letter = document.getElementById('letter');
 
+  let letterState = 'idle'; // idle | opening | opened
+
   function openLetter(fromRestore) {
     envelope.classList.add('open');
     letter.classList.add('show');
     if (fromRestore) {
+      letterState = 'opened';
       envelopeWrap.style.display = 'none';
       openButton.style.display = 'none';
     } else {
       storage.set('letterOpened', true);
       setTimeout(() => {
+        letterState = 'opened';
         envelopeWrap.style.display = 'none';
         openButton.style.display = 'none';
       }, 900);
     }
   }
 
-  openButton.addEventListener('click', () => openLetter(false));
+  // Tocar el sobre entero abre la carta, no solo el texto "Abrir" — una
+  // sola guarda de estado evita que dos toques casi simultáneos (sobre +
+  // botón) disparen la animación de apertura dos veces.
+  function handleOpenLetter() {
+    if (letterState !== 'idle') return;
+    letterState = 'opening';
+    openLetter(false);
+  }
+
+  bindPress(envelopeWrap, envelopeWrap);
+  envelopeWrap.addEventListener('click', handleOpenLetter);
+  openButton.addEventListener('click', handleOpenLetter);
 
   if (storage.get('letterOpened', false)) {
     openLetter(true);
@@ -363,14 +405,18 @@
   const finalDate = document.getElementById('final-date');
   const finalMore = document.getElementById('final-more');
   const finalWhisper = document.getElementById('final-whisper');
-  let finalPetal = null;
+
+  let finalState = storage.get('finalReached', false) ? 'completed' : 'idle'; // idle | animating | completed
 
   function runFinalIntro() {
     bloomInstant(finalFlower);
     setTimeout(() => finalLine1.classList.add('show'), 300);
     setTimeout(() => finalDate.classList.add('show'), 1200);
-    if (!storage.get('finalReached', false)) {
-      setTimeout(() => finalMore.classList.add('show'), 2600);
+    if (finalState === 'idle') {
+      setTimeout(() => {
+        finalMore.classList.add('show');
+        setTimeout(() => finalMore.classList.add('invite'), 1700);
+      }, 2600);
     } else {
       revealWhisper(true);
     }
@@ -378,7 +424,7 @@
 
   function pickFinalPetal() {
     const petals = finalFlower.querySelectorAll('.outer-petals .petal');
-    return petals[0];
+    return petals.length ? petals[0] : null;
   }
 
   function revealWhisper(instant) {
@@ -391,21 +437,25 @@
   }
 
   finalMore.addEventListener('click', () => {
-    if (storage.get('finalReached', false)) return;
-    finalMore.classList.remove('show');
-    finalPetal = pickFinalPetal();
-    finalPetal.classList.add('petal-fall');
-    requestAnimationFrame(() => {
-      setTimeout(() => finalPetal.classList.add('falling'), 30);
-    });
+    if (finalState !== 'idle') return;
+    finalState = 'animating';
+    finalMore.classList.remove('show', 'invite');
+    const finalPetal = pickFinalPetal();
+    if (finalPetal) {
+      finalPetal.classList.add('petal-fall');
+      requestAnimationFrame(() => {
+        setTimeout(() => finalPetal.classList.add('falling'), 30);
+      });
+    }
     storage.set('finalReached', true);
+    finalState = 'completed';
     revealWhisper(false);
   });
 
-  if (storage.get('finalReached', false)) {
+  if (finalState === 'completed') {
     setTimeout(() => {
       const p = pickFinalPetal();
-      p.classList.add('petal-fall', 'falling');
+      if (p) p.classList.add('petal-fall', 'falling');
     }, 50);
   }
 

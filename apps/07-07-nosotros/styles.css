@@ -8,7 +8,19 @@
 html, body {
   margin: 0;
   min-height: 100dvh;
-  overflow-x: hidden;
+  /* `overflow-x: hidden` en html Y body a la vez es un bug conocido de
+     Chromium que además bloquea el scroll vertical por rueda/gesto.
+     `clip` evita el scroll horizontal sin convertir ambos elementos en
+     contenedores de scroll independientes. */
+  overflow-x: clip;
+}
+
+html {
+  /* Desactiva el doble-tap-para-zoom en toda la app (fuente frecuente de
+     "hay que tocar varias veces" en Safari iOS) sin afectar el pinch-zoom,
+     que se mantiene disponible por accesibilidad. */
+  touch-action: manipulation;
+  scroll-behavior: smooth;
 }
 
 :root {
@@ -53,11 +65,33 @@ button {
   border: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform 0.15s var(--ease-soft), opacity 0.15s var(--ease-soft);
+}
+
+/* Feedback nativo inmediato al presionar cualquier botón. Requiere que
+   exista un listener de touchstart en el documento (ver app.js) para que
+   Safari iOS aplique :active a un toque en lugar de solo al mouse. */
+button:active {
+  transform: scale(0.96);
+  opacity: 0.72;
+}
+
+/* Botones-texto (Abrir / Seguir / Una más…): el área táctil real es mayor
+   que el texto visible, sin desplazar la composición visual. */
+button.hint {
+  padding: 10px 20px;
+  margin: -10px -20px;
 }
 
 .flower-wrap.tappable,
-.garden-continue {
+.garden-flower,
+.envelope-wrap {
   cursor: pointer;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 ::selection {
@@ -69,7 +103,6 @@ button {
 
 .experience {
   width: 100%;
-  scroll-behavior: smooth;
 }
 
 .scene {
@@ -148,6 +181,26 @@ button {
   opacity: 1;
 }
 
+/* Texto puramente decorativo/instructivo: nunca debe interceptar un tap
+   destinado a un elemento interactivo cercano. */
+.date-mark,
+.eyebrow,
+.line-soft,
+.title-serif,
+#portada-hint,
+.time-plus,
+.time-label,
+.time-number,
+.mini-petal,
+.distance-line-text,
+.distance-line,
+.envelope-mini-flower,
+.final-date,
+.final-whisper,
+.garden-message {
+  pointer-events: none;
+}
+
 /* ============================================================
    FLOR — componente SVG reutilizable
    ============================================================ */
@@ -163,6 +216,40 @@ button {
 .flower-wrap.tappable {
   padding: 14px;
   border-radius: 50%;
+  position: relative;
+}
+
+/* Señal delicada de "esto se toca": halo casi imperceptible + pulso muy
+   ligero, solo en la flor de portada y solo mientras sigue cerrada. */
+.scene-portada .flower-wrap.tappable::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(198, 161, 91, 0.18), rgba(198, 161, 91, 0) 72%);
+  opacity: 0;
+  pointer-events: none;
+  animation: invite-halo 7s ease-in-out infinite;
+}
+
+.scene-portada .flower-wrap.tappable.bloomed::before {
+  animation: none;
+  opacity: 0;
+}
+
+.scene-portada .flower-wrap.tappable:not(.bloomed) .flower {
+  animation: invite-pulse 7s ease-in-out infinite;
+}
+
+@keyframes invite-halo {
+  0%, 74%, 100% { opacity: 0; transform: scale(0.92); }
+  87% { opacity: 1; transform: scale(1.05); }
+  95% { opacity: 0; transform: scale(1.1); }
+}
+
+@keyframes invite-pulse {
+  0%, 74%, 100% { transform: scale(1); }
+  87% { transform: scale(1.02); }
 }
 
 .flower {
@@ -340,6 +427,25 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
+  padding: 6px 4px;
+}
+
+/* Señal delicada de "esto se toca": un destello dorado sutil en el centro
+   de cada flor todavía cerrada, escalonado para que el jardín se sienta
+   vivo sin que las cinco pulsen al mismo tiempo. */
+.garden-flower[data-open="false"] .flower .stamen {
+  animation: invite-glow 5.5s ease-in-out infinite;
+}
+
+.garden-flower:nth-child(1) .flower .stamen { animation-delay: 0s; }
+.garden-flower:nth-child(2) .flower .stamen { animation-delay: 0.7s; }
+.garden-flower:nth-child(3) .flower .stamen { animation-delay: 1.4s; }
+.garden-flower:nth-child(4) .flower .stamen { animation-delay: 2.1s; }
+.garden-flower:nth-child(5) .flower .stamen { animation-delay: 2.8s; }
+
+@keyframes invite-glow {
+  0%, 68%, 100% { opacity: 0; }
+  82% { opacity: 0.85; }
 }
 
 .garden-flower:nth-child(2) { transform: translateY(-10px); }
@@ -485,6 +591,18 @@ button {
 .envelope-wrap {
   perspective: 800px;
   margin: 0.6rem 0;
+}
+
+/* El pulso idle vive en .envelope-body (hijo) y el feedback de presión en
+   .envelope-wrap (contenedor): así nunca compiten por la misma propiedad
+   `transform` en el mismo elemento. */
+.envelope:not(.open) .envelope-body {
+  animation: invite-pulse 7s ease-in-out infinite;
+}
+
+.envelope-wrap.pressed {
+  transform: scale(0.97);
+  transition: transform 0.2s var(--ease-soft);
 }
 
 .envelope {
@@ -649,6 +767,18 @@ button {
 
 .final-whisper.show {
   opacity: 1;
+}
+
+/* Invitación delicada a tocar, activada solo después de que el botón ya
+   terminó de aparecer (para no pelear con su propia transición de entrada). */
+#final-more.invite,
+#garden-continue.invite {
+  animation: invite-float 4.5s ease-in-out infinite;
+}
+
+@keyframes invite-float {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.68; }
 }
 
 .final-spacer {

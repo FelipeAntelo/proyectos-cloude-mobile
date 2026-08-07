@@ -1,4 +1,9 @@
-const CACHE_NAME = '07-07-nosotros-v3';
+// Estrategia network-first mientras la app está en desarrollo activo: cada
+// recarga con conexión trae SIEMPRE la versión más nueva (bypaseando la
+// caché HTTP del navegador con `cache: 'no-store'`), y el Cache Storage
+// solo se usa como respaldo si falla la red (offline). Cuando la app esté
+// terminada, esto puede volver a cache-first para un offline más agresivo.
+const CACHE_NAME = '07-07-nosotros-v4-dev';
 const APP_SHELL = [
   './',
   './index.html',
@@ -11,7 +16,15 @@ const APP_SHELL = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(
+        APP_SHELL.map((url) =>
+          fetch(url, { cache: 'no-store' })
+            .then((response) => cache.put(url, response))
+            .catch(() => {})
+        )
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -29,17 +42,16 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200 && response.type === 'basic') {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match('./index.html'));
-    })
+    fetch(event.request, { cache: 'no-store' })
+      .then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() =>
+        caches.match(event.request).then((cached) => cached || caches.match('./index.html'))
+      )
   );
 });

@@ -1,57 +1,38 @@
-// Estrategia network-first mientras la app está en desarrollo activo: cada
-// recarga con conexión trae SIEMPRE la versión más nueva (bypaseando la
-// caché HTTP del navegador con `cache: 'no-store'`), y el Cache Storage
-// solo se usa como respaldo si falla la red (offline). Cuando la app esté
-// terminada, esto puede volver a cache-first para un offline más agresivo.
-const CACHE_NAME = '07-07-nosotros-v4-dev';
-const APP_SHELL = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-];
+// ETAPA DE DESARROLLO — service worker desactivado a propósito.
+//
+// Este archivo ya no cachea nada: es un "kill switch". Existe para que los
+// navegadores que todavía tengan instalada una versión anterior del service
+// worker (que sí cacheaba) la reemplacen por esta, borren su caché y lo
+// desregistren. Sin esto, un SW viejo seguiría sirviendo la versión anterior
+// de la app aunque el HTML nuevo ya no lo registre.
+//
+// Al no haber handler de `fetch`, todas las peticiones van directo a la red.
+//
+// Cuando la app esté terminada se puede restaurar la estrategia cache-first
+// del template de pwa-builder (ver CLAUDE.md §6).
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) =>
-      Promise.all(
-        APP_SHELL.map((url) =>
-          fetch(url, { cache: 'no-store' })
-            .then((response) => cache.put(url, response))
-            .catch(() => {})
-        )
-      )
-    )
-  );
+const CACHE_PREFIX = '07-07-nosotros';
+
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
+    (async () => {
+      // Solo las caches de ESTA app: todas las PWAs del repo comparten
+      // origin en GitHub Pages y no deben tocarse entre sí.
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter((k) => k.startsWith(CACHE_PREFIX)).map((k) => caches.delete(k))
+      );
 
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+      await self.registration.unregister();
 
-  event.respondWith(
-    fetch(event.request, { cache: 'no-store' })
-      .then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      })
-      .catch(() =>
-        caches.match(event.request).then((cached) => cached || caches.match('./index.html'))
-      )
+      // Recarga las pestañas abiertas para que dejen de ver contenido viejo.
+      // No genera bucle: tras el unregister ya no hay SW que vuelva a activarse.
+      const clients = await self.clients.matchAll({ type: 'window' });
+      clients.forEach((client) => client.navigate(client.url));
+    })()
   );
 });

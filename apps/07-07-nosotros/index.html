@@ -61,9 +61,12 @@
           </div>
         </div>
         <p class="title-serif line-md time-choose" id="time-choose">Y todavía te escogería.</p>
-        <svg class="mini-petal" id="time-petal" viewBox="0 0 20 30" aria-hidden="true">
-          <path d="M10,0 C2,5 1,16 10,30 C19,16 18,5 10,0 Z" fill="#d9a9ad" opacity="0.8"/>
-        </svg>
+        <div class="secret-petal-wrap time-petal-wrap" id="time-petal-wrap">
+          <svg class="mini-petal secret-petal" id="time-petal" viewBox="0 0 20 30" aria-hidden="true">
+            <path d="M10,0 C2,5 1,16 10,30 C19,16 18,5 10,0 Z" fill="#d9a9ad" opacity="0.8"/>
+          </svg>
+        </div>
+        <p class="secret-phrase" id="time-secret-phrase"></p>
       </div>
     </section>
 
@@ -96,10 +99,19 @@
           </div>
         </div>
 
+        <p class="hint" id="garden-discovery-hint">Hay cosas por descubrir…</p>
+
         <div class="garden-message" id="garden-message">
           <p class="msg-title"></p>
           <p class="msg-text"></p>
         </div>
+
+        <div class="secret-petal-wrap garden-petal-wrap" id="garden-secret-wrap">
+          <svg class="mini-petal secret-petal" viewBox="0 0 20 30" aria-hidden="true">
+            <path d="M10,0 C2,5 1,16 10,30 C19,16 18,5 10,0 Z" fill="#c98f96" opacity="0.85"/>
+          </svg>
+        </div>
+        <p class="secret-phrase" id="garden-secret-phrase"></p>
 
         <button class="hint garden-continue" id="garden-continue" type="button">Seguir</button>
       </div>

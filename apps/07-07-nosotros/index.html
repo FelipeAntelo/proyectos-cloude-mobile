@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>07:07 — Nosotros</title>
+  <meta name="description" content="Una pequeña experiencia privada para celebrar cuatro años y un mes juntos." />
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#faf6f0" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Nosotros" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <button class="audio-toggle" id="audio-toggle" type="button" aria-label="Reproducir música">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 18V5l10-2v13" stroke="#c6a15b" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="6.5" cy="18" r="2.5" stroke="#c6a15b" stroke-width="1.4"/>
+      <circle cx="16.5" cy="16" r="2.5" stroke="#c6a15b" stroke-width="1.4"/>
+    </svg>
+  </button>
+  <audio id="bg-audio" loop preload="metadata">
+    <source src="./audio/tema.mp3" type="audio/mpeg" />
+  </audio>
+
+  <main class="experience">
+
+    <!-- 1. PORTADA -->
+    <section class="scene scene-portada" id="scene-portada">
+      <div class="scene-inner">
+        <div class="flower-wrap tappable" id="portada-flower-wrap">
+          <div id="portada-flower"></div>
+        </div>
+        <p class="date-mark">07 · 07 · 2022</p>
+        <p class="title-serif line-md">Hay cosas que todavía quiero seguir cuidando.</p>
+        <p class="hint" id="portada-hint">Tócala</p>
+      </div>
+    </section>
+
+    <!-- 2. NUESTRO TIEMPO -->
+    <section class="scene" id="scene-tiempo">
+      <div class="scene-inner">
+        <div class="time-figures">
+          <div class="time-figure" id="time-years">
+            <span class="time-number">4</span>
+            <span class="time-label">años</span>
+          </div>
+          <span class="time-plus">y</span>
+          <div class="time-figure" id="time-months">
+            <span class="time-number">1</span>
+            <span class="time-label">mes</span>
+          </div>
+        </div>
+        <p class="title-serif line-md time-choose" id="time-choose">Y todavía te escogería.</p>
+        <svg class="mini-petal" id="time-petal" viewBox="0 0 20 30" aria-hidden="true">
+          <path d="M10,0 C2,5 1,16 10,30 C19,16 18,5 10,0 Z" fill="#d9a9ad" opacity="0.8"/>
+        </svg>
+      </div>
+    </section>
+
+    <!-- 3. NUESTRO PEQUEÑO JARDÍN -->
+    <section class="scene" id="scene-jardin">
+      <div class="scene-inner">
+        <p class="eyebrow garden-title">Nuestro pequeño jardín</p>
+        <p class="line-soft">Cada una guarda algo que quería decirte.</p>
+
+        <div class="garden">
+          <div class="garden-flower" data-open="false">
+            <div class="flower-wrap tappable flower-host"></div>
+            <span class="flower-name">Tu forma de querer</span>
+          </div>
+          <div class="garden-flower" data-open="false">
+            <div class="flower-wrap tappable flower-host"></div>
+            <span class="flower-name">Tu fortaleza</span>
+          </div>
+          <div class="garden-flower" data-open="false">
+            <div class="flower-wrap tappable flower-host"></div>
+            <span class="flower-name">Tu paciencia</span>
+          </div>
+          <div class="garden-flower" data-open="false">
+            <div class="flower-wrap tappable flower-host"></div>
+            <span class="flower-name">Tu compañía</span>
+          </div>
+          <div class="garden-flower" data-open="false">
+            <div class="flower-wrap tappable flower-host"></div>
+            <span class="flower-name">Tú</span>
+          </div>
+        </div>
+
+        <div class="garden-message" id="garden-message">
+          <p class="msg-title"></p>
+          <p class="msg-text"></p>
+        </div>
+
+        <button class="hint garden-continue" id="garden-continue" type="button">Seguir</button>
+      </div>
+    </section>
+
+    <!-- 4. LA DISTANCIA -->
+    <section class="scene" id="scene-distancia">
+      <div class="scene-inner">
+        <div class="distance-lines">
+          <p class="distance-line-text">Últimamente nos ha tocado aprender a querernos también a la distancia.</p>
+          <p class="distance-line-text">Unas cuantas horas de camino cambiaron nuestros días…</p>
+          <p class="distance-line-text">…pero nunca cambiaron dónde quiero estar.</p>
+        </div>
+
+        <div class="distance-stage" id="distance-stage">
+          <div class="distance-figure her" id="her-flower"></div>
+          <div class="distance-line"></div>
+          <div class="distance-figure me" id="me-flower"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. LA CARTA -->
+    <section class="scene" id="scene-carta">
+      <div class="scene-inner envelope-scene-inner">
+        <p class="title-serif line-md">Hay algo que prefiero decirte sin resumirlo.</p>
+
+        <div class="envelope-wrap" id="envelope-wrap">
+          <div class="envelope-mini-flower" id="envelope-flower"></div>
+          <div class="envelope" id="envelope">
+            <div class="envelope-flap"></div>
+            <div class="envelope-body"></div>
+          </div>
+        </div>
+
+        <button class="hint show open-hint" id="open-letter" type="button">Abrir</button>
+
+        <article class="letter" id="letter">
+          <p class="letter-greeting">Mi amor,</p>
+
+          <p>Hoy no quería regalarte simplemente una frase bonita por cumplir otro mes. Quería dejarte algo que pudieras abrir y sentir que, incluso en esta etapa en la que a veces nuestros días transcurren a unas cuantas horas de distancia, sigo estando acá.</p>
+
+          <p>Han pasado cuatro años y un mes desde que empezamos esto. Y cuando pienso en todo ese tiempo, no pienso solamente en los momentos perfectos. Pienso en todo lo que hemos vivido, aprendido, aguantado, cambiado y construido juntos.</p>
+
+          <p>Gracias por ser la mujer que has sido conmigo. Gracias por entenderme tantas veces, por acompañarme, por tenerme paciencia y por seguir apostando por nosotros incluso cuando no siempre ha sido fácil.</p>
+
+          <p>Admiro muchísimo a la mujer que sos. Me encanta verte crecer, perseguir lo tuyo, esforzarte y convertirte cada día más en esa profesional y esa persona increíble que siempre vi en vos. Y aunque ahora tus prácticas muchas veces nos obliguen a vivir nuestros días de una manera diferente, quiero que sepás que me siento profundamente orgulloso de verte avanzando y construyendo tu propio camino.</p>
+
+          <p>Sé también que últimamente quizá no estamos viviendo nuestra etapa más bonita. No quiero disfrazarlo ni convertir este detalle en una manera de hacer como si absolutamente todo fuera perfecto. Porque amar a alguien tampoco debería significar fingir que todos los días son perfectos.</p>
+
+          <p>Simplemente quiero que recuerdes algo.</p>
+
+          <p class="beat gold">Yo te sigo eligiendo.</p>
+
+          <p>No solamente cuando estamos bien. No solamente cuando estamos juntos. No solamente cuando todo resulta sencillo. Te elijo también en los días normales, en la distancia, en nuestras diferencias y en esas etapas donde quizá tenemos que volver a encontrarnos un poquito.</p>
+
+          <p>Para mí nunca fuiste una persona más. Cuando te miro sigo viendo a esa mujer que, entre todas las personas del mundo, quiero tener a mi lado.</p>
+
+          <p class="beat">Sos vos.</p>
+
+          <p>Y no porque crea que nosotros tenemos que ser perfectos. Sino porque después de todo este tiempo, con todo lo que conozco de vos y todo lo que hemos vivido, seguís siendo la persona con la que quiero construir.</p>
+
+          <p>Mientras la vida nos permita seguir haciendo esto juntos, quiero seguir aprendiendo a quererte mejor. A escucharte mejor. A cuidarte mejor. Y a construir con vos algo cada vez más nuestro.</p>
+
+          <p>Gracias por estos cuatro años y un mes. Gracias por seguir acá. Gracias por todo lo que has dado de vos para que nosotros lleguemos hasta acá. Y sobre todo: gracias por ser vos.</p>
+
+          <p class="beat gold">Te amo muchísimo.</p>
+
+          <p class="signature">— Tuyo</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- 6. FINAL -->
+    <section class="scene" id="scene-final">
+      <div class="scene-inner">
+        <div class="flower-wrap" id="final-flower"></div>
+        <p class="title-serif line-md final-line" id="final-line-1">Hoy también te elijo.</p>
+        <p class="final-date" id="final-date">07 · 08 · 2026</p>
+        <button class="hint final-line" id="final-more" type="button">Una más…</button>
+        <p class="final-whisper" id="final-whisper">Mañana también.</p>
+      </div>
+      <div class="final-spacer" aria-hidden="true"></div>
+    </section>
+
+  </main>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(console.error);
+      });
+    }
+  </script>
+  <script src="app.js" defer></script>
+</body>
+</html>

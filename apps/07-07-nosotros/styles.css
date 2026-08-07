@@ -1,6 +1,10 @@
 /* ============================================================
    07:07 — Nosotros
    Paleta: marfil cálido, rosa pastel, rosa empolvado, dorado champán
+
+   Lenguaje de interacción:
+     FLOR que respira  = puede esconder algo, se toca
+     PÉTALO flotando   = hay algo por descubrir / por dónde seguir
    ============================================================ */
 
 * { box-sizing: border-box; }
@@ -10,17 +14,14 @@ html, body {
   min-height: 100dvh;
   /* `overflow-x: hidden` en html Y body a la vez es un bug conocido de
      Chromium que además bloquea el scroll vertical por rueda/gesto.
-     `clip` evita el scroll horizontal sin convertir ambos elementos en
-     contenedores de scroll independientes. */
+     `clip` evita el scroll horizontal sin ese efecto. */
   overflow-x: clip;
 }
 
 html {
-  /* Desactiva el doble-tap-para-zoom en toda la app (fuente frecuente de
-     "hay que tocar varias veces" en Safari iOS) sin afectar el pinch-zoom,
-     que se mantiene disponible por accesibilidad. */
+  /* Desactiva el doble-tap-para-zoom (fuente frecuente de "hay que tocar
+     varias veces" en Safari iOS) sin quitar el pinch-zoom. */
   touch-action: manipulation;
-  scroll-behavior: smooth;
 }
 
 :root {
@@ -41,6 +42,7 @@ html {
 
   --ease-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-bloom: cubic-bezier(0.19, 0.7, 0.24, 1);
+  --ease-breeze: cubic-bezier(0.45, 0.05, 0.55, 0.95);
 }
 
 html, body {
@@ -58,8 +60,7 @@ body {
 }
 
 /* ============================================================
-   BOTONES — todos los elementos interactivos son <button> reales,
-   estilizados para no parecer botones.
+   BOTONES — todo lo interactivo es un <button> real, sin aspecto de botón
    ============================================================ */
 
 button {
@@ -81,51 +82,33 @@ button {
 
 button:focus { outline: none; }
 
-/* Foco visible solo para teclado, nunca al tocar con el dedo. */
 button:focus-visible {
   outline: 1px solid var(--line);
   outline-offset: 6px;
   border-radius: 8px;
 }
 
-/* Botones-texto (Abrir / Seguir / Una más…): el área táctil real es mayor
-   que el texto visible, sin desplazar la composición visual. */
-button.hint {
-  min-height: 44px;
-  padding: 10px 22px;
-  margin: -10px -22px;
-  transition: transform 0.16s var(--ease-soft), opacity 0.16s var(--ease-soft);
-}
-
-button.hint:active,
-button.hint.pressed {
-  transform: scale(0.97);
-  opacity: 0.7;
-}
-
-/* --- Feedback táctil compartido -------------------------------------
-   El `scale` se aplica siempre a un hijo que NO tenga transform propio,
-   para no pisar posicionamientos (nth-child del jardín, caída de pétalos). */
-
+/* Feedback táctil: el `scale` se aplica siempre a un hijo sin transform
+   propio, para no pisar la brisa ni el posicionamiento de la retícula. */
 .flower-button .flower-host,
-.garden-flower .flower-host,
+.garden-flower .cell-flower,
 .envelope-button .envelope,
-.secret-petal-btn .petal-hit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.petal-nav .petal-hit,
+.final-more .final-more-text {
   transition: transform 0.16s var(--ease-soft);
 }
 
 .flower-button:active .flower-host,
 .flower-button.pressed .flower-host,
-.garden-flower:active .flower-host,
-.garden-flower.pressed .flower-host,
+.garden-flower:active .cell-flower,
+.garden-flower.pressed .cell-flower,
 .envelope-button:active .envelope,
 .envelope-button.pressed .envelope,
-.secret-petal-btn:active .petal-hit,
-.secret-petal-btn.pressed .petal-hit {
-  transform: scale(0.97);
+.petal-nav:active .petal-hit,
+.petal-nav.pressed .petal-hit,
+.final-more:active .final-more-text,
+.final-more.pressed .final-more-text {
+  transform: scale(0.96);
 }
 
 ::selection {
@@ -133,11 +116,11 @@ button.hint.pressed {
   color: var(--ink);
 }
 
-/* ---------- Scroll container ---------- */
+/* ============================================================
+   ESCENAS
+   ============================================================ */
 
-.experience {
-  width: 100%;
-}
+.experience { width: 100%; }
 
 .scene {
   min-height: 100dvh;
@@ -147,9 +130,7 @@ button.hint.pressed {
   align-items: center;
   justify-content: center;
   position: relative;
-  /* El padding superior deja libre la esquina donde vive el control de
-     música (fijo, 44px + margen), para que nunca se cruce con el texto
-     en las escenas cuyo contenido es más alto que la pantalla. */
+  /* El padding superior libera la esquina del control de música. */
   padding: calc(env(safe-area-inset-top) + 4.6rem) 1.6rem calc(env(safe-area-inset-bottom) + 3.2rem);
   text-align: center;
   opacity: 0;
@@ -171,17 +152,7 @@ button.hint.pressed {
   gap: 1.6rem;
 }
 
-/* Punto de disparo invisible dentro de una escena: permite activar una
-   secuencia cuando esa zona concreta entra en pantalla, sin depender de
-   que entre la sección completa (que puede ser más alta que el viewport). */
-.scene-trigger {
-  display: block;
-  width: 1px;
-  height: 1px;
-  pointer-events: none;
-}
-
-/* ---------- Typography ---------- */
+/* ---------- Tipografía ---------- */
 
 .eyebrow {
   font-family: var(--sans);
@@ -199,13 +170,7 @@ button.hint.pressed {
   line-height: 1.25;
 }
 
-.line-lg {
-  font-size: clamp(1.5rem, 6vw, 2.05rem);
-}
-
-.line-md {
-  font-size: clamp(1.15rem, 4.6vw, 1.4rem);
-}
+.line-md { font-size: clamp(1.15rem, 4.6vw, 1.4rem); }
 
 .line-soft {
   font-family: var(--sans);
@@ -224,17 +189,9 @@ button.hint.pressed {
   transition: opacity 1.6s var(--ease-soft);
 }
 
-.hint.show {
-  opacity: 1;
-}
+.hint.show { opacity: 1; }
 
-/* Un botón-hint invisible no debe seguir siendo tocable. */
-button.hint:not(.show) {
-  pointer-events: none;
-}
-
-/* Texto puramente decorativo: nunca debe interceptar un tap destinado a un
-   elemento interactivo cercano. */
+/* Decorativo: nunca intercepta un tap destinado a un botón cercano. */
 .date-mark,
 .eyebrow,
 .line-soft,
@@ -247,22 +204,61 @@ button.hint:not(.show) {
 .distance-line,
 .distance-figure,
 #garden-discovery-hint,
+.petal-lesson,
+.petal-phrase,
+.open-hint,
 .envelope-mini-flower,
 .final-date,
 .final-whisper,
-.secret-phrase,
-.garden-message {
+.garden-message,
+.cell-label {
   pointer-events: none;
 }
 
 /* Las ilustraciones SVG nunca capturan el tap: lo recibe el <button>. */
 .flower,
-.mini-petal {
+.petal-shape {
   pointer-events: none;
 }
 
 /* ============================================================
-   FLOR — componente SVG reutilizable
+   BRISA — todas las flores están vivas
+   Cada instancia recibe --breeze-dur / --breeze-delay / --breeze-amp
+   distintos desde JS, para que ninguna se mueva sincronizada con otra.
+   ============================================================ */
+
+.flower {
+  overflow: visible;
+  display: block;
+  will-change: transform;
+  animation: breeze var(--breeze-dur, 5.5s) var(--ease-breeze) var(--breeze-delay, 0s) infinite alternate;
+}
+
+@keyframes breeze {
+  0% {
+    transform: rotate(calc(var(--breeze-amp, 1) * -1.9deg))
+               translate(calc(var(--breeze-amp, 1) * -1.6px), calc(var(--breeze-amp, 1) * 1.1px))
+               scale(0.994);
+  }
+  45% {
+    transform: rotate(calc(var(--breeze-amp, 1) * 0.5deg))
+               translate(calc(var(--breeze-amp, 1) * 0.7px), calc(var(--breeze-amp, 1) * -1.3px))
+               scale(1.003);
+  }
+  100% {
+    transform: rotate(calc(var(--breeze-amp, 1) * 2deg))
+               translate(calc(var(--breeze-amp, 1) * 2.2px), calc(var(--breeze-amp, 1) * 0.9px))
+               scale(1);
+  }
+}
+
+/* Al tocar, la brisa se queda quieta un momento y luego vuelve sola. */
+.flower.calm {
+  animation-play-state: paused;
+}
+
+/* ============================================================
+   FLOR — componente SVG
    ============================================================ */
 
 .flower-host {
@@ -272,25 +268,23 @@ button.hint:not(.show) {
   position: relative;
 }
 
-/* Botón de la flor de portada: hitbox muy superior a la ilustración.
-   Sin border-radius a propósito — un botón redondeado deja sus esquinas
+/* Sin border-radius a propósito: un botón redondeado deja sus esquinas
    fuera del hit-testing, y aquí se quiere poder tocar CERCA de la flor. */
 .flower-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  min-width: 116px;
-  min-height: 116px;
-  padding: 18px;
+  min-width: 124px;
+  min-height: 124px;
+  padding: 20px;
 }
 
-/* Señal delicada de "esto se toca": halo casi imperceptible + pulso muy
-   ligero, mientras la flor sigue cerrada. */
+/* Halo casi imperceptible mientras la flor de portada sigue cerrada. */
 .flower-button::before {
   content: '';
   position: absolute;
-  inset: 6px;
+  inset: 8px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(198, 161, 91, 0.18), rgba(198, 161, 91, 0) 72%);
   opacity: 0;
@@ -303,32 +297,16 @@ button.hint:not(.show) {
   opacity: 0;
 }
 
-.flower-button:not(.bloomed) .flower {
-  animation: invite-pulse 7s ease-in-out infinite;
-}
-
 @keyframes invite-halo {
   0%, 74%, 100% { opacity: 0; transform: scale(0.92); }
   87% { opacity: 1; transform: scale(1.05); }
   95% { opacity: 0; transform: scale(1.1); }
 }
 
-@keyframes invite-pulse {
-  0%, 74%, 100% { transform: scale(1); }
-  87% { transform: scale(1.02); }
-}
-
-.flower {
-  overflow: visible;
-  display: block;
-}
-
 .flower .petal {
   transform-origin: 50% 100%;
   transform: rotate(var(--rot)) translateY(2%) scale(0.32);
-  transition:
-    transform 2.1s var(--ease-bloom),
-    opacity 1.4s ease;
+  transition: transform 2.1s var(--ease-bloom), opacity 1.4s ease;
   transition-delay: var(--delay, 0s);
   opacity: 0.92;
 }
@@ -360,32 +338,97 @@ button.hint:not(.show) {
   transform: scale(1);
 }
 
-.flower.sway {
-  animation: flower-sway 7s ease-in-out infinite alternate;
-}
-
-@keyframes flower-sway {
-  from { transform: rotate(-1.1deg); }
-  to   { transform: rotate(1.1deg); }
-}
-
-/* Falling petal (final scene) */
+/* Pétalo que se desprende en la escena final */
 .petal-fall {
   transition:
-    transform 2.4s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 1.8s ease 0.5s;
+    transform 2.6s cubic-bezier(0.36, 0.02, 0.32, 1),
+    opacity 1.9s ease 0.7s;
 }
 
 .petal-fall.falling {
-  transform: translate(6px, 150px) rotate(50deg) scale(0.85);
+  transform: translate(10px, 170px) rotate(190deg) scale(0.8);
   opacity: 0;
+}
+
+/* ============================================================
+   PÉTALO DE NAVEGACIÓN — "hay algo más por acá"
+   ============================================================ */
+
+.petal-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 3.5rem;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 1.6s var(--ease-soft), transform 1.6s var(--ease-soft);
+  pointer-events: none;
+}
+
+.petal-slot.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.petal-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  min-height: 68px;
+  padding: 20px;
+}
+
+.petal-nav .petal-hit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.petal-shape {
+  width: 19px;
+  height: 28px;
+  display: block;
+  opacity: 0.9;
+  will-change: transform;
+  animation: petal-float var(--float-dur, 4.6s) var(--ease-breeze) var(--float-delay, 0s) infinite alternate;
+}
+
+@keyframes petal-float {
+  0%   { transform: translate(-2px, -4px) rotate(-8deg); }
+  50%  { transform: translate(1px, 0px) rotate(2deg); }
+  100% { transform: translate(3px, 5px) rotate(11deg); }
+}
+
+.petal-nav.spent .petal-shape {
+  animation: none;
+  opacity: 0.35;
+  transition: opacity 0.8s ease;
+}
+
+.petal-phrase {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--ink-soft);
+  min-height: 1.4em;
+  opacity: 0;
+  transition: opacity 1s var(--ease-soft);
+}
+
+.petal-phrase.show { opacity: 1; }
+
+.petal-lesson {
+  font-size: 0.76rem;
+  max-width: 17rem;
+  line-height: 1.5;
 }
 
 /* ---------- Portada ---------- */
 
-.scene-portada .flower-button {
-  margin-bottom: 0.4rem;
-}
+.scene-portada .flower-button { margin-bottom: 0.4rem; }
 
 .date-mark {
   font-family: var(--sans);
@@ -441,7 +484,7 @@ button.hint:not(.show) {
 }
 
 .time-choose {
-  margin-top: 1rem;
+  margin-top: 0.6rem;
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 1.4s var(--ease-soft) 0.3s, transform 1.4s var(--ease-soft) 0.3s;
@@ -452,103 +495,71 @@ button.hint:not(.show) {
   transform: translateY(0);
 }
 
-.mini-petal {
-  width: 18px;
-  height: 26px;
-  opacity: 0;
-  transform: translateY(-6px) rotate(0deg);
-  transition: opacity 2s ease 1s, transform 2.6s var(--ease-soft) 1s;
-}
-
-.scene.in-view .mini-petal.show {
-  opacity: 0.85;
-  transform: translateY(18px) rotate(35deg);
-}
-
-/* El pétalo del jardín no cae: está simplemente ahí, esperando. */
-.mini-petal.is-static {
-  opacity: 0.85;
-  transform: rotate(18deg);
-  transition: opacity 0.6s ease;
-}
-
 /* ============================================================
-   PÉTALOS SECRETOS — contenido opcional, encontrado por curiosidad
+   JARDÍN — retícula deliberada 3 + 2, con las dos de abajo centradas
    ============================================================ */
 
-.secret-petal-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 60px;
-  min-height: 60px;
-  padding: 16px;
-}
-
-.secret-petal-btn .petal-hit {
-  display: inline-flex;
-}
-
-/* Reflejo dorado muy tenue y ocasional: el único rasgo visual que distingue
-   a un pétalo secreto de uno puramente decorativo. */
-.secret-petal {
-  animation: secret-glint 9s ease-in-out infinite;
-}
-
-@keyframes secret-glint {
-  0%, 82%, 100% { filter: drop-shadow(0 0 0 rgba(198, 161, 91, 0)); }
-  91% { filter: drop-shadow(0 0 3px rgba(198, 161, 91, 0.75)); }
-}
-
-.secret-petal-btn.discovered .secret-petal {
-  animation: none;
-}
-
-.secret-phrase {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1rem;
-  color: var(--ink-soft);
-  min-height: 1.4em;
-  opacity: 0;
-  transition: opacity 1.4s var(--ease-soft);
-}
-
-.secret-phrase.show {
-  opacity: 1;
-}
-
-/* ---------- Jardín ---------- */
-
-.garden-title {
-  margin-bottom: 0.2rem;
-}
+.garden-title { margin-bottom: 0.2rem; }
 
 .garden {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  column-gap: 0.4rem;
-  row-gap: 1.6rem;
+  /* 6 columnas: 3 celdas arriba (2 col c/u) y 2 abajo desplazadas media
+     celda, así quedan centradas respecto de las de arriba. */
+  grid-template-columns: repeat(6, 1fr);
+  column-gap: 0.2rem;
+  row-gap: 1.4rem;
   width: 100%;
-  max-width: 22rem;
-  margin: 0.6rem auto 0;
-  align-items: end;
+  max-width: 21rem;
+  margin: 0.4rem auto 0;
+  justify-items: center;
 }
 
+.garden-flower:nth-child(1) { grid-column: 1 / span 2; }
+.garden-flower:nth-child(2) { grid-column: 3 / span 2; }
+.garden-flower:nth-child(3) { grid-column: 5 / span 2; }
+.garden-flower:nth-child(4) { grid-column: 2 / span 2; }
+.garden-flower:nth-child(5) { grid-column: 4 / span 2; }
+
+/* Estructura fija por celda: zona de flor + zona de label, ambas de
+   altura reservada, para que nada se desalinee porque un título ocupe
+   dos líneas. */
 .garden-flower {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  width: 100%;
   min-width: 72px;
-  min-height: 88px;
-  padding: 8px 4px;
-  text-align: center;
+  padding: 4px 2px;
 }
 
-/* Señal delicada de "esto se toca": un destello dorado sutil en el centro
-   de cada flor todavía cerrada, escalonado para que el jardín se sienta
-   vivo sin que las cinco pulsen al mismo tiempo. */
+.garden-flower .cell-flower {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 78px;
+  width: 100%;
+}
+
+.garden-flower .cell-label {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  /* Alto reservado para dos líneas: las etiquetas nunca desplazan la flor. */
+  min-height: 2.5em;
+  margin-top: 0.35rem;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+  text-align: center;
+  transition: color 0.6s var(--ease-soft);
+}
+
+.garden-flower[data-open="true"] .cell-label { color: var(--gold); }
+
+/* Destello dorado sutil en el centro de cada flor sin descubrir. */
 .garden-flower[data-open="false"] .flower .stamen {
   animation: invite-glow 5.5s ease-in-out infinite;
 }
@@ -564,41 +575,26 @@ button.hint:not(.show) {
   82% { opacity: 0.85; }
 }
 
-/* Pista de descubrimiento: una única reacción, ligeramente distinta a la
-   respiración ambiental de arriba, para enseñar una vez que las flores se
-   tocan. Se agrega y se quita por JS — nunca queda en loop. */
-.garden-flower .flower-host.discovery-cue {
+/* Pista de descubrimiento: una sola reacción, distinta de la brisa. */
+.garden-flower .cell-flower.discovery-cue {
   animation: discovery-lift 0.9s var(--ease-soft);
 }
 
 @keyframes discovery-lift {
   0% { transform: translateY(0); }
-  40% { transform: translateY(-5px); }
+  40% { transform: translateY(-6px); }
   70% { transform: translateY(1px); }
   100% { transform: translateY(0); }
 }
 
-.garden-flower:nth-child(2) { transform: translateY(-10px); }
-.garden-flower:nth-child(4) { transform: translateY(6px); }
-.garden-flower:nth-child(5) { transform: translateY(-6px); }
-
-.garden-flower .flower-name {
-  font-family: var(--sans);
-  font-size: 0.72rem;
-  letter-spacing: 0.05em;
-  color: var(--ink-faint);
-  margin-top: 0.15rem;
-  min-height: 1.2em;
-  transition: color 0.6s var(--ease-soft);
-}
-
-.garden-flower[data-open="true"] .flower-name {
-  color: var(--gold);
-}
+/* El jardín es la escena más densa: se aprieta lo justo para que entre
+   completo en pantalla y no se corte la fila superior al bajar hacia el
+   pétalo de salida. */
+#scene-jardin .scene-inner { gap: 1.05rem; }
 
 .garden-message {
-  margin-top: 1.4rem;
-  min-height: 6.5rem;
+  margin-top: 0.4rem;
+  min-height: 5.4rem;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -633,12 +629,8 @@ button.hint:not(.show) {
   transform: translateY(0);
 }
 
-.garden-continue {
-  margin-top: 1.4rem;
-}
-
 /* ============================================================
-   DISTANCIA — secuencia narrativa en cinco estados
+   DISTANCIA — las dos flores son el elemento gráfico principal
    ============================================================ */
 
 .distance-lines {
@@ -669,25 +661,25 @@ button.hint:not(.show) {
 .distance-stage {
   width: 100%;
   max-width: 22rem;
-  margin: 1rem 0;
+  margin: 0.4rem 0;
 }
 
 .distance-track {
   position: relative;
   width: 100%;
-  height: 96px;
+  height: 150px;
 }
 
 .distance-figure {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 40px;
-  height: 40px;
-  margin-left: -20px;
-  margin-top: -20px;
-  /* El movimiento es el corazón de esta escena: lento y orgánico. */
-  transition: transform 2.6s var(--ease-bloom);
+  width: 96px;
+  height: 96px;
+  margin-left: -48px;
+  margin-top: -48px;
+  /* El desplazamiento es el corazón de la escena: lento y orgánico. */
+  transition: transform 2.7s var(--ease-bloom);
   will-change: transform;
 }
 
@@ -703,44 +695,82 @@ button.hint:not(.show) {
   transition: width 1.8s var(--ease-soft), opacity 1.2s ease;
 }
 
-/* Estado 1 — juntas, esperando */
-.distance-stage[data-state="near"] .distance-figure.her { transform: translateX(-24px); }
-.distance-stage[data-state="near"] .distance-figure.me  { transform: translateX(24px); }
+/* 1 — juntas, esperando */
+.distance-stage[data-state="near"] .distance-figure.her { transform: translateX(-40px); }
+.distance-stage[data-state="near"] .distance-figure.me  { transform: translateX(40px); }
 
-/* Estado 2 — se separan */
+/* 2 — se separan */
 .distance-stage[data-state="apart"] .distance-figure.her,
-.distance-stage[data-state="linked"] .distance-figure.her { transform: translateX(-102px); }
+.distance-stage[data-state="linked"] .distance-figure.her { transform: translateX(-88px); }
 .distance-stage[data-state="apart"] .distance-figure.me,
-.distance-stage[data-state="linked"] .distance-figure.me  { transform: translateX(102px); }
+.distance-stage[data-state="linked"] .distance-figure.me  { transform: translateX(88px); }
 
-/* Estado 3 — el hilo dorado aparece entre ambas */
+/* 3 — el hilo dorado se dibuja entre ambas */
 .distance-stage[data-state="linked"] .distance-line {
-  width: 164px;
+  width: 104px;
   opacity: 1;
 }
 
-/* Estado 4 — vuelven a acercarse, el hilo se acorta */
-.distance-stage[data-state="closing"] .distance-figure.her { transform: translateX(-30px); }
-.distance-stage[data-state="closing"] .distance-figure.me  { transform: translateX(30px); }
+/* 4 — vuelven a acercarse, el hilo se acorta */
+.distance-stage[data-state="closing"] .distance-figure.her { transform: translateX(-50px); }
+.distance-stage[data-state="closing"] .distance-figure.me  { transform: translateX(50px); }
 .distance-stage[data-state="closing"] .distance-line {
-  width: 30px;
+  width: 34px;
   opacity: 0.85;
 }
 
-/* Estado 5 — juntas otra vez */
-.distance-stage[data-state="together"] .distance-figure.her { transform: translateX(-19px); }
-.distance-stage[data-state="together"] .distance-figure.me  { transform: translateX(19px); }
+/* 5 — juntas otra vez (y siguen respirando) */
+.distance-stage[data-state="together"] .distance-figure.her { transform: translateX(-42px); }
+.distance-stage[data-state="together"] .distance-figure.me  { transform: translateX(42px); }
 .distance-stage[data-state="together"] .distance-line {
-  width: 12px;
-  opacity: 0.5;
+  width: 14px;
+  opacity: 0.45;
 }
+
+.replay-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--ink-faint);
+  opacity: 0;
+  transition: opacity 1.4s var(--ease-soft);
+}
+
+.replay-btn[hidden] { display: none; }
+.replay-btn.show { opacity: 0.5; }
+.replay-btn:active { opacity: 0.85; }
+.replay-btn svg { width: 15px; height: 15px; }
 
 /* ============================================================
    CARTA
    ============================================================ */
 
-.envelope-scene-inner {
-  gap: 1.2rem;
+.envelope-scene-inner { gap: 1.2rem; }
+
+.envelope-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  /* Se colapsa suavemente al abrir, para que la carta no dé un salto. */
+  max-height: 260px;
+  overflow: visible;
+  transition:
+    max-height 0.7s var(--ease-soft) 0.75s,
+    opacity 0.6s ease 0.8s,
+    margin 0.7s var(--ease-soft) 0.75s;
+}
+
+/* Sin overflow:hidden a propósito: la hoja que sube se sale del contenedor
+   y recortarla en pleno movimiento cortaría la continuidad hacia la carta.
+   Se desvanece mientras el alto se colapsa. */
+.envelope-slot.collapsing {
+  max-height: 0;
+  opacity: 0;
+  margin-top: -0.8rem;
+  pointer-events: none;
 }
 
 .envelope-button {
@@ -749,7 +779,6 @@ button.hint:not(.show) {
   justify-content: center;
   position: relative;
   padding: 22px 20px;
-  margin: 0.4rem 0;
 }
 
 .envelope {
@@ -757,11 +786,20 @@ button.hint:not(.show) {
   display: block;
   width: 200px;
   height: 132px;
+  will-change: transform;
+  /* Brisa de papel, muy leve, mientras sigue cerrado. */
+  animation: paper-breeze 6.5s var(--ease-breeze) infinite alternate;
 }
 
-/* Pulso idle muy leve mientras el sobre sigue cerrado. */
-.envelope-button:not(.opened) .envelope-body {
-  animation: invite-pulse 7s ease-in-out infinite;
+@keyframes paper-breeze {
+  0%   { transform: rotate(-1deg) translateY(-1px); }
+  100% { transform: rotate(1deg) translateY(1px); }
+}
+
+.envelope.open,
+.envelope-button.pressed .envelope,
+.envelope-button:active .envelope {
+  animation: none;
 }
 
 .envelope-body {
@@ -771,7 +809,7 @@ button.hint:not(.show) {
   background: var(--cream);
   border-radius: 6px;
   box-shadow: 0 10px 28px rgba(120, 92, 70, 0.1);
-  transition: opacity 0.6s ease, transform 0.7s var(--ease-soft);
+  transition: opacity 0.7s ease 0.55s, transform 0.8s var(--ease-soft) 0.45s;
 }
 
 .envelope-body::before {
@@ -784,7 +822,7 @@ button.hint:not(.show) {
   border-radius: 0 0 6px 6px;
 }
 
-/* La hoja que sale del sobre. */
+/* La hoja que sale del sobre y se expande hacia la carta. */
 .envelope-sheet {
   position: absolute;
   left: 12px;
@@ -794,9 +832,12 @@ button.hint:not(.show) {
   z-index: 1;
   background: #fffdf9;
   border-radius: 4px 4px 0 0;
-  box-shadow: 0 -2px 10px rgba(120, 92, 70, 0.08);
-  transform: translateY(0);
-  transition: transform 0.85s var(--ease-soft) 0.3s, opacity 0.5s ease;
+  box-shadow: 0 -2px 12px rgba(120, 92, 70, 0.09);
+  transform-origin: 50% 100%;
+  transform: translateY(0) scaleY(1);
+  transition:
+    transform 1s var(--ease-soft) 0.28s,
+    opacity 0.5s ease 1.1s;
 }
 
 .envelope-flap {
@@ -810,53 +851,55 @@ button.hint:not(.show) {
   clip-path: polygon(0 0, 100% 0, 50% 78%);
   transform-origin: top center;
   transform: rotateX(0deg);
-  transition: transform 0.55s var(--ease-soft);
+  transition: transform 0.6s var(--ease-soft);
   border-radius: 6px 6px 0 0;
   backface-visibility: hidden;
 }
 
 .envelope-mini-flower {
   position: absolute;
-  top: -6px;
+  top: -30px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 4;
+  transition: opacity 0.5s ease 0.35s, transform 0.7s var(--ease-soft) 0.35s;
 }
 
-/* --- Apertura (≈1.5s en total) --- */
-.envelope.open .envelope-flap {
-  transform: rotateX(-158deg);
-}
+/* --- Apertura (~1.8s, con continuidad hacia la carta) --- */
+.envelope.open .envelope-flap { transform: rotateX(-162deg); }
 
 .envelope.open .envelope-sheet {
-  transform: translateY(-46px);
+  transform: translateY(-62px) scaleY(1.12);
 }
 
 .envelope.open .envelope-body {
-  transform: translateY(8px);
-}
-
-.envelope-button.opening {
-  transition: opacity 0.7s ease 0.85s, transform 0.7s var(--ease-soft) 0.85s;
+  transform: translateY(14px);
   opacity: 0;
-  transform: translateY(10px) scale(0.98);
 }
 
-/* ---------- Letter content ---------- */
+.envelope.open .envelope-mini-flower {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-14px);
+}
+
+/* ---------- Contenido de la carta ---------- */
 
 .letter {
   width: 100%;
   max-width: 30rem;
-  padding: 0 0.2rem 4rem;
+  padding: 0 0.2rem;
   text-align: left;
   opacity: 0;
-  transform: translateY(16px);
-  transition: opacity 1.4s var(--ease-soft), transform 1.4s var(--ease-soft);
+  transform: translateY(18px) scale(0.985);
+  transform-origin: 50% 0;
+  transition:
+    opacity 1.2s var(--ease-soft),
+    transform 1.2s var(--ease-soft);
 }
 
 .letter.show {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .letter-greeting {
@@ -881,13 +924,10 @@ button.hint:not(.show) {
   font-size: 1.28rem;
   color: var(--dusty-rose-deep);
   letter-spacing: 0.02em;
-  /* Espacio generoso alrededor: la frase necesita respirar. */
   margin: 3.2rem 0;
 }
 
-.letter p.beat.gold {
-  color: var(--gold);
-}
+.letter p.beat.gold { color: var(--gold); }
 
 .letter .signature {
   text-align: center;
@@ -895,8 +935,11 @@ button.hint:not(.show) {
   font-style: italic;
   font-size: 1.05rem;
   color: var(--ink-soft);
-  margin-top: 2.4rem;
+  margin: 2.4rem 0 0;
 }
+
+/* Espacio generoso entre la firma y el pétalo que lleva al final. */
+.letter-petal-slot { margin-top: 4.5rem; }
 
 /* ---------- Final ---------- */
 
@@ -922,6 +965,44 @@ button.hint:not(.show) {
   transform: translateY(0);
 }
 
+.final-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  min-height: 52px;
+  padding: 12px 20px;
+  margin-top: 0.6rem;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 1.6s var(--ease-soft), transform 1.6s var(--ease-soft);
+  pointer-events: none;
+}
+
+.final-more.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.final-more-text {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+
+.final-more-petal {
+  display: inline-flex;
+  align-items: center;
+}
+
+.final-more-petal .petal-shape {
+  width: 14px;
+  height: 21px;
+  --float-dur: 3.8s;
+}
+
 .final-whisper {
   font-family: var(--serif);
   font-style: italic;
@@ -932,27 +1013,11 @@ button.hint:not(.show) {
   transition: opacity 2.4s ease;
 }
 
-.final-whisper.show {
-  opacity: 1;
-}
+.final-whisper.show { opacity: 1; }
 
-/* Invitación delicada a tocar, activada solo después de que el botón ya
-   terminó de aparecer (para no pelear con su propia transición de entrada). */
-#final-more.invite,
-#garden-continue.invite {
-  animation: invite-float 4.5s ease-in-out infinite;
-}
+.final-spacer { height: 26dvh; }
 
-@keyframes invite-float {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.68; }
-}
-
-.final-spacer {
-  height: 30dvh;
-}
-
-/* ---------- Audio control ---------- */
+/* ---------- Control de audio ---------- */
 
 .audio-toggle {
   position: fixed;
@@ -961,9 +1026,8 @@ button.hint:not(.show) {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  /* Fondo casi opaco (el mismo marfil de la página): así el texto de la
-     carta que pasa por debajo queda limpiamente oculto en vez de leerse
-     a medias a través del control. */
+  /* Fondo casi opaco (el marfil de la página): el texto de la carta que
+     pasa por debajo queda oculto en vez de leerse a medias. */
   background: rgba(250, 246, 240, 0.96);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
@@ -976,45 +1040,40 @@ button.hint:not(.show) {
   transition: opacity 1.2s var(--ease-soft);
 }
 
-.audio-toggle[hidden] {
-  display: none;
-}
-
-.audio-toggle.available {
-  opacity: 1;
-}
-
-.audio-toggle svg {
-  width: 17px;
-  height: 17px;
-}
-
+.audio-toggle[hidden] { display: none; }
+.audio-toggle.available { opacity: 1; }
+.audio-toggle svg { width: 17px; height: 17px; }
 .audio-toggle .icon-muted { display: none; }
 .audio-toggle[data-playing="false"] .icon-playing { display: none; }
 .audio-toggle[data-playing="false"] .icon-muted { display: block; }
 
-/* ---------- Reduced motion ---------- */
+/* ---------- Movimiento reducido ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.4s !important;
   }
-  .flower.sway {
-    animation: none;
+  .flower,
+  .petal-shape,
+  .envelope {
+    animation: none !important;
   }
 }
 
-/* ---------- Small screens tweak ---------- */
+/* ---------- Pantallas pequeñas ---------- */
 
-@media (max-width: 340px) {
-  .garden {
-    max-width: 18rem;
+@media (max-width: 360px) {
+  .garden { max-width: 18.5rem; }
+  .garden-flower { min-width: 62px; }
+  .garden-flower .cell-flower { height: 68px; }
+  .distance-figure {
+    width: 82px; height: 82px;
+    margin-left: -41px; margin-top: -41px;
   }
-  .garden-flower {
-    min-width: 64px;
-    padding: 8px 2px;
-  }
+  .distance-stage[data-state="apart"] .distance-figure.her,
+  .distance-stage[data-state="linked"] .distance-figure.her { transform: translateX(-76px); }
+  .distance-stage[data-state="apart"] .distance-figure.me,
+  .distance-stage[data-state="linked"] .distance-figure.me { transform: translateX(76px); }
 }

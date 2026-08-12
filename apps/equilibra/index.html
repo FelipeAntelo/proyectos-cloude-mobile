@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Equilibra</title>
+  <meta name="description" content="Registrá gastos compartidos con tus compañeros y dejá que Equilibra calcule quién debería pagar después." />
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0f1115" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Equilibra" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <script>
+    // Tema: aplicar preferencia guardada antes del primer paint para evitar flash.
+    try {
+      var saved = localStorage.getItem('pwa-lab:equilibra:theme');
+      if (saved === 'light' || saved === 'dark') {
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    } catch (e) { /* localStorage no disponible */ }
+  </script>
+</head>
+<body>
+  <div id="app" role="main" aria-live="polite"></div>
+  <div id="sheet-root"></div>
+  <div id="toast-root"></div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(console.error);
+      });
+    }
+  </script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

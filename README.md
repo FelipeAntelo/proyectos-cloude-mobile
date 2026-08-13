@@ -11,6 +11,9 @@ Para crear una PWA nueva, usar el skill `pwa-builder`
 
 ## Apps
 
+- [`apps/equilibra`](./apps/equilibra) — registro de gastos compartidos entre
+  compañeros: balances automáticos, recomendación de próximo pagador,
+  compensaciones, análisis y backup local (IndexedDB, offline-first).
 - [`apps/carta-interactiva`](./apps/carta-interactiva) — carta que se voltea,
   con botón, animación discreta y contador configurable (PWA de demostración).
 

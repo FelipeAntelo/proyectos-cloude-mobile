@@ -1,0 +1,9 @@
+{
+  "name": "equilibra-tests",
+  "private": true,
+  "type": "module",
+  "description": "Solo para correr los tests de la lógica financiera con el test runner nativo de Node. No afecta cómo se sirve o instala la PWA (GitHub Pages ignora este archivo): no hay build, no hay dependencias, no hace falta `npm install`.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

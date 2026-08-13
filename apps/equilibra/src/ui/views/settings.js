@@ -1,5 +1,5 @@
 import { h } from '../../utils/dom.js';
-import { getState, exportBackup, importBackup, wipeAll, deleteDemoData, init as reinitStore } from '../../state/store.js';
+import { getState, exportBackup, importBackup, wipeAll, deleteDemoData, init as reinitStore, syncNowManual } from '../../state/store.js';
 import { getTheme, setTheme } from '../../utils/theme.js';
 import { showToast } from '../components/toast.js';
 import { icon } from '../components/icons.js';
@@ -7,7 +7,7 @@ import { openSheet, closeSheet } from '../components/sheet.js';
 import { confirmDialog } from '../components/confirm.js';
 import { loadDemoData } from '../../state/demoData.js';
 
-const APP_VERSION = '1.2';
+const APP_VERSION = '1.3';
 const isDebug = () => new URLSearchParams(location.search).get('debug') === '1';
 
 export function renderSettings() {
@@ -31,6 +31,9 @@ export function renderSettings() {
         h('button', { className: 'btn btn-secondary btn-block', onClick: exportData }, [icon('download', { size: 'sm' }), 'Guardar copia']),
         importButton(),
       ]),
+      state.group
+        ? h('button', { className: 'btn btn-ghost', style: { marginTop: '10px' }, onClick: () => { syncNowManual(); showToast('Sincronizando…'); } }, 'Sincronizar ahora')
+        : null,
       state.hasDemoData
         ? h('button', { className: 'btn btn-ghost', style: { marginTop: '10px' }, onClick: confirmDeleteDemo }, 'Eliminar datos de demostración')
         : null,

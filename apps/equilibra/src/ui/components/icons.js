@@ -49,6 +49,7 @@ const PATHS = {
   empty: ['path', { d: 'M4 8.5 12 4l8 4.5v7L12 20l-8-4.5Z' }, 'path', { d: 'M4 8.5 12 13l8-4.5M12 13v7' }],
   check: ['path', { d: 'M5 12.5l4.5 4.5L19 7' }],
   warning: ['path', { d: 'M12 4.5 21 19.5H3Z' }, 'path', { d: 'M12 10v4.2' }, 'circle', { cx: '12', cy: '16.8', r: '0.15', fill: 'currentColor', stroke: 'currentColor', 'stroke-width': '2' }],
+  share: ['circle', { cx: '18', cy: '6', r: '2.3' }, 'circle', { cx: '6', cy: '12', r: '2.3' }, 'circle', { cx: '18', cy: '18', r: '2.3' }, 'path', { d: 'M8.1 10.8l7.8-3.6M8.1 13.2l7.8 3.6' }],
 };
 
 export function icon(name, { size = 'md', className = '' } = {}) {

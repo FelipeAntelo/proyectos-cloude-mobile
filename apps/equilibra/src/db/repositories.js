@@ -5,6 +5,7 @@
 
 import { dbGetAll, dbGetAllByIndex, dbGet, dbPut, dbDelete, dbBulkPut, dbClearAll, dbTransaction, ALL_STORES } from './db.js';
 import { uuid } from '../utils/uuid.js';
+import { planDemoCleanup, hasDemoData as computeHasDemoData } from '../logic/demoCleanup.js';
 
 const nowIso = () => new Date().toISOString();
 
@@ -18,12 +19,13 @@ export async function getPerson(id) {
   return dbGet('people', id);
 }
 
-export async function createPerson({ name, color }) {
+export async function createPerson({ name, color, source }) {
   const person = {
     id: uuid(),
     name: name.trim(),
     color: color || null,
     active: true,
+    source: source || null,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -47,11 +49,12 @@ export async function listCategories() {
   return dbGetAll('categories');
 }
 
-export async function createCategory({ name }) {
+export async function createCategory({ name, source }) {
   const category = {
     id: uuid(),
     name: name.trim(),
     archived: false,
+    source: source || null,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -75,13 +78,14 @@ export async function listProducts() {
   return dbGetAll('products');
 }
 
-export async function createProduct({ name, categoryId }) {
+export async function createProduct({ name, categoryId, source }) {
   const product = {
     id: uuid(),
     name: name.trim(),
     categoryId: categoryId || null,
     archived: false,
     useCount: 0,
+    source: source || null,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -130,6 +134,7 @@ export async function createPurchase(data) {
     weights: data.weights || null,
     shares: { ...data.shares },
     note: data.note || '',
+    source: data.source || null,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -203,6 +208,7 @@ export async function createSettlement(data) {
     currency: data.currency || 'BOB',
     purchaseId: data.purchaseId || null,
     note: data.note || '',
+    source: data.source || null,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -282,4 +288,47 @@ export async function importAllData(backup, { replace = false } = {}) {
 
 export async function wipeAllData() {
   return dbClearAll(ALL_STORES.filter((s) => s !== 'meta'));
+}
+
+// ---------- Datos de demostración ----------
+// Los registros que crea loadDemoData() llevan `source: 'demo'`. Borrarlos usa
+// planDemoCleanup (lógica pura, ver logic/demoCleanup.js) para decidir qué
+// borrar sin tocar nada real, incluso si el usuario mezcló datos reales con
+// personas/categorías/productos que originalmente eran de demo.
+
+export async function hasDemoData() {
+  const [people, categories, products, purchases, settlements] = await Promise.all([
+    listPeople(),
+    listCategories(),
+    listProducts(),
+    listPurchases(),
+    listSettlements(),
+  ]);
+  return computeHasDemoData({ people, categories, products, purchases, settlements });
+}
+
+export async function deleteDemoData() {
+  const [people, categories, products, purchases, settlements] = await Promise.all([
+    listPeople(),
+    listCategories(),
+    listProducts(),
+    listPurchases(),
+    listSettlements(),
+  ]);
+  const plan = planDemoCleanup({ people, categories, products, purchases, settlements });
+
+  return dbTransaction(['people', 'categories', 'products', 'purchases', 'settlements'], 'readwrite', (tx) => {
+    plan.purchaseIds.forEach((id) => tx.objectStore('purchases').delete(id));
+    plan.settlementIds.forEach((id) => tx.objectStore('settlements').delete(id));
+    plan.personIds.forEach((id) => tx.objectStore('people').delete(id));
+    plan.categoryIds.forEach((id) => tx.objectStore('categories').delete(id));
+    plan.productIds.forEach((id) => tx.objectStore('products').delete(id));
+    return {
+      purchases: plan.purchaseIds.length,
+      settlements: plan.settlementIds.length,
+      people: plan.personIds.length,
+      categories: plan.categoryIds.length,
+      products: plan.productIds.length,
+    };
+  });
 }

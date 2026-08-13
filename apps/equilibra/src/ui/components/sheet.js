@@ -1,4 +1,5 @@
 import { h, mount, clear } from '../../utils/dom.js';
+import { icon } from './icons.js';
 
 const root = () => document.getElementById('sheet-root');
 
@@ -16,7 +17,7 @@ export function openSheet(titleText, contentNode, { onClose, ariaLabel } = {}) {
         titleText
           ? h('div', { className: 'sheet-header' }, [
               h('h2', {}, titleText),
-              h('button', { className: 'icon-btn', 'aria-label': 'Cerrar', onClick: () => closeSheet() }, '✕'),
+              h('button', { className: 'icon-btn', 'aria-label': 'Cerrar', onClick: () => closeSheet() }, [icon('close', { size: 'sm' })]),
             ])
           : null,
         contentNode,

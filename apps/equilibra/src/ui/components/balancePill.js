@@ -3,20 +3,17 @@ import { formatCents } from '../../logic/money.js';
 import { describeBalance } from '../../logic/wording.js';
 
 const CSS_MOOD = { favor: 'positive', pending: 'negative', even: 'zero' };
-const ICON = { favor: '▲', pending: '▼', even: '●' };
 
-/** Pill compacta con el MONTO (sin +/-): "▲ Bs 36.67" / "▼ Bs 18.33" / "● Al día". */
-export function balancePillNode(balanceCents) {
+/** "Bs 36.67 a favor" / "Bs 18.33 pendientes" / "Al día", en una sola línea compacta y coloreada. */
+export function balanceAmountNode(balanceCents) {
   const d = describeBalance(balanceCents);
   const mood = CSS_MOOD[d.kind];
-  return h('span', { className: `balance-pill ${mood}` }, [
-    h('span', { className: 'arrow', 'aria-hidden': 'true' }, ICON[d.kind]),
-    d.kind === 'even' ? 'Al día' : formatCents(d.amountCents),
-  ]);
+  const text = d.kind === 'even' ? 'Al día' : `${formatCents(d.amountCents)} ${d.kind === 'favor' ? 'a favor' : 'pendientes'}`;
+  return h('span', { className: `balance-amount balance-label-${mood}` }, text);
 }
 
-/** Etiqueta corta en lenguaje llano: "Saldo a favor" / "Aporte pendiente" / "Al día". */
-export function balanceLabelNode(balanceCents, { className = 'name-sub' } = {}) {
+/** Etiqueta corta y sola: "Saldo a favor" / "Aporte pendiente" / "Al día". */
+export function balanceLabelNode(balanceCents, { className = 'faint' } = {}) {
   const d = describeBalance(balanceCents);
   return h('span', { className: `${className} balance-label-${CSS_MOOD[d.kind]}` }, d.title);
 }

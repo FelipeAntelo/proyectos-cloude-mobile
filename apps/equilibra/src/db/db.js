@@ -3,7 +3,13 @@
 // Todo lo demás (repositories.js, lógica de negocio, UI) pasa siempre por aquí.
 
 const DB_NAME = 'equilibra-db';
-const DB_VERSION = 1;
+// v1 -> v2: las compensaciones (ahora "transferencias") ganan un campo opcional
+// `purchaseId` para poder representar devoluciones ligadas a una compra
+// concreta (ver logic/refunds.js). Es un campo aditivo: los registros viejos
+// simplemente no lo tienen (equivale a `null`, "transferencia general"), así
+// que no hace falta reescribir datos existentes — solo agregar el índice
+// nuevo sobre el object store ya existente, preservando todo lo demás.
+const DB_VERSION = 2;
 
 /** @type {Promise<IDBDatabase>|null} */
 let dbPromise = null;
@@ -16,6 +22,7 @@ function openDatabase() {
 
     request.onupgradeneeded = (event) => {
       const db = request.result;
+      const tx = event.target.transaction;
 
       if (!db.objectStoreNames.contains('people')) {
         const store = db.createObjectStore('people', { keyPath: 'id' });
@@ -46,15 +53,19 @@ function openDatabase() {
         store.createIndex('datetime', 'datetime');
         store.createIndex('fromPersonId', 'fromPersonId');
         store.createIndex('toPersonId', 'toPersonId');
+        store.createIndex('purchaseId', 'purchaseId');
+      } else if (event.oldVersion < 2) {
+        // DB creada con el esquema v1: el store ya existe con sus datos intactos,
+        // solo le agregamos el índice nuevo por encima.
+        const store = tx.objectStore('settlements');
+        if (!store.indexNames.contains('purchaseId')) {
+          store.createIndex('purchaseId', 'purchaseId');
+        }
       }
 
       if (!db.objectStoreNames.contains('meta')) {
         db.createObjectStore('meta', { keyPath: 'key' });
       }
-
-      event.target.transaction.oncomplete = () => {
-        // no-op: reservado para futuras migraciones incrementales por versión.
-      };
     };
 
     request.onsuccess = () => resolve(request.result);
@@ -105,6 +116,12 @@ export async function dbGetAll(storeName) {
   );
 }
 
+export async function dbGetAllByIndex(storeName, indexName, value) {
+  return withTransaction([storeName], 'readonly', (tx) =>
+    requestToPromise(tx.objectStore(storeName).index(indexName).getAll(value))
+  );
+}
+
 export async function dbGet(storeName, id) {
   return withTransaction([storeName], 'readonly', (tx) =>
     requestToPromise(tx.objectStore(storeName).get(id))
@@ -134,6 +151,16 @@ export async function dbClearAll(storeNames) {
   return withTransaction(storeNames, 'readwrite', (tx) => {
     storeNames.forEach((name) => tx.objectStore(name).clear());
   });
+}
+
+/**
+ * Punto de escape controlado para operaciones que necesitan tocar más de un
+ * store de forma atómica (ej. borrar una compra junto con sus devoluciones).
+ * Sigue siendo el único módulo que conoce IndexedDB: repositories.js compone
+ * operaciones con esto, pero nunca importa `indexedDB` directamente.
+ */
+export async function dbTransaction(storeNames, mode, fn) {
+  return withTransaction(storeNames, mode, fn);
 }
 
 export const ALL_STORES = ['people', 'categories', 'products', 'purchases', 'settlements', 'meta'];

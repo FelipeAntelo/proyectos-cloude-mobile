@@ -1,8 +1,9 @@
 import { h } from '../../utils/dom.js';
 import { getState, addPerson, editPerson, setPersonActive } from '../../state/store.js';
-import { formatCents } from '../../logic/money.js';
+import { formatCents, formatSignedCents } from '../../logic/money.js';
+import { describeBalance } from '../../logic/wording.js';
 import { avatarNode } from '../components/avatar.js';
-import { balancePillNode } from '../components/balancePill.js';
+import { balancePillNode, balanceLabelNode } from '../components/balancePill.js';
 import { openSheet, closeSheet } from '../components/sheet.js';
 import { confirmDialog } from '../components/confirm.js';
 import { showToast } from '../components/toast.js';
@@ -52,7 +53,10 @@ function personList(state, people) {
     people.map((person) =>
       h('div', { className: 'list-item', role: 'button', tabindex: '0', onClick: () => openPersonDetail(state, person) }, [
         avatarNode(person),
-        h('div', { className: 'list-main' }, [h('div', { className: 'list-title' }, person.name)]),
+        h('div', { className: 'list-main' }, [
+          h('div', { className: 'list-title' }, person.name),
+          balanceLabelNode(state.balances[person.id]?.balanceCents ?? 0, { className: 'list-sub' }),
+        ]),
         balancePillNode(state.balances[person.id]?.balanceCents ?? 0),
       ])
     )
@@ -101,12 +105,14 @@ function openPersonDetail(state, person) {
 
     h('div', { className: 'stat-grid' }, [
       statTile(formatCents(balance.paidCents), 'Total pagado'),
-      statTile(formatCents(balance.consumedCents), 'Le correspondía'),
+      statTile(formatCents(balance.consumedCents), 'Le correspondía aportar'),
+      statTile(formatSignedCents(balance.settlementNetCents), 'Transferencias / devoluciones netas'),
       statTile(String(balance.purchaseCount), 'Compras'),
-      h('div', { className: 'stat-tile' }, [balancePillNode(balance.balanceCents), h('div', { className: 'label' }, 'Balance')]),
     ]),
 
-    h('div', { className: 'section-title' }, 'Evolución de su balance'),
+    balanceSummaryCard(balance.balanceCents),
+
+    h('div', { className: 'section-title' }, 'Evolución de su saldo'),
     equilibriumTrendChart(trend),
 
     h('div', { className: 'section-title' }, 'Últimos movimientos'),
@@ -139,6 +145,16 @@ function openPersonDetail(state, person) {
 
 function statTile(value, label) {
   return h('div', { className: 'stat-tile' }, [h('div', { className: 'value' }, value), h('div', { className: 'label' }, label)]);
+}
+
+function balanceSummaryCard(balanceCents) {
+  const d = describeBalance(balanceCents);
+  const mood = d.kind === 'favor' ? 'positive' : d.kind === 'pending' ? 'negative' : 'zero';
+  return h('div', { className: 'card', style: { marginTop: '10px', textAlign: 'center' } }, [
+    h('div', { className: 'faint' }, 'Saldo actual'),
+    h('div', { className: `balance-label-${mood}`, style: { fontSize: '1.5rem', fontWeight: 800, marginTop: '2px' } }, d.title),
+    d.kind !== 'even' ? h('div', { className: 'muted' }, formatCents(d.amountCents)) : null,
+  ]);
 }
 
 function movementMiniRow(state, movement) {

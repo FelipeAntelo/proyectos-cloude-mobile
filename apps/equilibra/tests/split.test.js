@@ -14,10 +14,35 @@ test('splitEqual: reparte el resto de centavos y la suma cierra exacta', () => {
   assert.equal(sumShares(shares), 10000);
   const values = Object.values(shares);
   assert.ok(values.every((v) => v === 3333 || v === 3334));
-  // el resto (1 centavo) va al primer participante en el orden dado
-  assert.equal(shares.a, 3334);
-  assert.equal(shares.b, 3333);
-  assert.equal(shares.c, 3333);
+  // exactamente una persona recibe el centavo extra
+  assert.equal(values.filter((v) => v === 3334).length, 1);
+});
+
+test('splitEqual: el ejemplo del enunciado (Bs 55 entre 3) suma exacto y reparte 1 centavo', () => {
+  const shares = splitEqual(5500, ['felipe', 'b', 'israel']);
+  assert.equal(sumShares(shares), 5500);
+  const values = Object.values(shares).sort((x, y) => x - y);
+  assert.deepEqual(values, [1833, 1833, 1834]);
+});
+
+test('splitEqual: es determinista (recalcular la misma compra da siempre el mismo resultado)', () => {
+  const a = splitEqual(10000, ['a', 'b', 'c']);
+  const b = splitEqual(10000, ['a', 'b', 'c']);
+  assert.deepEqual(a, b);
+});
+
+test('splitEqual: el centavo sobrante no siempre cae en la misma persona (sin sesgo sistemático)', () => {
+  // Mismo trío, distintos montos con resto: si siempre le tocara al primero
+  // del array ('a'), este set tendría un solo elemento. La rotación por hash
+  // hace que varíe según el monto.
+  const winners = new Set();
+  for (let cents = 10001; cents < 10001 + 30; cents += 1) {
+    const shares = splitEqual(cents, ['a', 'b', 'c']);
+    const [winner] = Object.entries(shares)
+      .sort((x, y) => y[1] - x[1])[0];
+    winners.add(winner);
+  }
+  assert.ok(winners.size > 1, 'el centavo extra debería repartirse entre más de una persona a lo largo de varias compras');
 });
 
 test('splitEqual: un solo participante recibe todo', () => {

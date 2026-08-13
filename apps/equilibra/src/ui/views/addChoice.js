@@ -19,7 +19,7 @@ export function openAddChoice() {
         className: 'btn btn-secondary btn-block',
         onClick: () => { closeSheet(); setTimeout(openAddSettlement, 180); },
       },
-      '🔁 Registrar compensación'
+      '⇄ Transferencia entre personas'
     ),
   ]);
 

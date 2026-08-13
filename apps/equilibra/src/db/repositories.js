@@ -3,7 +3,7 @@
 // Esta capa está pensada para poder reemplazarse mañana por un RemoteRepository (Supabase/Postgres)
 // sin tocar el resto de la aplicación: firma de funciones estable, entidades con id/timestamps propios.
 
-import { dbGetAll, dbGet, dbPut, dbDelete, dbBulkPut, dbClearAll, ALL_STORES } from './db.js';
+import { dbGetAll, dbGetAllByIndex, dbGet, dbPut, dbDelete, dbBulkPut, dbClearAll, dbTransaction, ALL_STORES } from './db.js';
 import { uuid } from '../utils/uuid.js';
 
 const nowIso = () => new Date().toISOString();
@@ -154,7 +154,32 @@ export async function deletePurchase(id) {
   return dbDelete('purchases', id);
 }
 
-// ---------- Compensaciones ----------
+/**
+ * Borra una compra junto con todas las devoluciones ligadas a ella (mismo
+ * `purchaseId`), en una única transacción atómica. Evita dejar transferencias
+ * huérfanas apuntando a una compra que ya no existe. El llamador (store.js) es
+ * responsable de confirmar con el usuario antes de invocar esto.
+ */
+export async function deletePurchaseWithSettlements(purchaseId) {
+  return dbTransaction(['purchases', 'settlements'], 'readwrite', async (tx) => {
+    const settlementsStore = tx.objectStore('settlements');
+    const linked = await new Promise((resolve, reject) => {
+      const req = settlementsStore.index('purchaseId').getAll(purchaseId);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    linked.forEach((s) => settlementsStore.delete(s.id));
+    tx.objectStore('purchases').delete(purchaseId);
+    return linked.length;
+  });
+}
+
+// ---------- Transferencias (incluye devoluciones ligadas a una compra) ----------
+// Una "settlement" es siempre el mismo hecho económico: dinero que se mueve de
+// una persona a otra. `purchaseId` es opcional: si está presente, la UI la
+// presenta como "devolución" de esa compra puntual; si es null, como
+// "transferencia" general entre personas. No hay dos entidades ni doble
+// contabilización: es un único movimiento con un dato de contexto opcional.
 
 export async function listSettlements() {
   return dbGetAll('settlements');
@@ -162,6 +187,10 @@ export async function listSettlements() {
 
 export async function getSettlement(id) {
   return dbGet('settlements', id);
+}
+
+export async function listSettlementsForPurchase(purchaseId) {
+  return dbGetAllByIndex('settlements', 'purchaseId', purchaseId);
 }
 
 export async function createSettlement(data) {
@@ -172,6 +201,7 @@ export async function createSettlement(data) {
     toPersonId: data.toPersonId,
     amountCents: data.amountCents,
     currency: data.currency || 'BOB',
+    purchaseId: data.purchaseId || null,
     note: data.note || '',
     createdAt: nowIso(),
     updatedAt: nowIso(),
@@ -181,7 +211,7 @@ export async function createSettlement(data) {
 
 export async function updateSettlement(id, data) {
   const existing = await dbGet('settlements', id);
-  if (!existing) throw new Error('Compensación no encontrada');
+  if (!existing) throw new Error('Transferencia no encontrada');
   const updated = { ...existing, ...data, id, updatedAt: nowIso() };
   return dbPut('settlements', updated);
 }
@@ -202,8 +232,13 @@ export async function setMeta(key, value) {
 }
 
 // ---------- Backup ----------
+// v1 -> v2: las transferencias pueden traer `purchaseId` (devoluciones ligadas
+// a una compra). Es aditivo: un backup v1 (sin ese campo) importa igual en la
+// v2 de la app, y un backup v2 importado en una v1 vieja simplemente ignoraría
+// el campo extra. Por eso `importAllData` acepta cualquier schemaVersion <= la
+// que soporta esta versión de la app (nunca una futura que no entienda).
 
-export const BACKUP_SCHEMA_VERSION = 1;
+export const BACKUP_SCHEMA_VERSION = 2;
 
 export async function exportAllData() {
   const [people, categories, products, purchases, settlements] = await Promise.all([

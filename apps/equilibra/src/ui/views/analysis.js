@@ -3,6 +3,7 @@ import { getState } from '../../state/store.js';
 import { computeBalances } from '../../logic/balances.js';
 import { equilibriumScore } from '../../logic/equilibrium.js';
 import { formatCents } from '../../logic/money.js';
+import { describeBalance } from '../../logic/wording.js';
 import { filterByPeriod, PERIODS } from '../../logic/period.js';
 import { avatarNode } from '../components/avatar.js';
 import { balancePillNode } from '../components/balancePill.js';
@@ -46,7 +47,7 @@ function buildBody(state) {
   const settlements = filterByPeriod(state.settlements, selectedPeriod);
 
   if (purchases.length === 0 && settlements.length === 0) {
-    return emptyState('📊', 'Todavía no hay datos en este período', 'Registrá compras o compensaciones para ver el análisis.');
+    return emptyState('📊', 'Todavía no hay datos en este período', 'Registrá compras o transferencias para ver el análisis.');
   }
 
   const periodBalances = computeBalances(state.people, purchases, settlements);
@@ -91,11 +92,13 @@ function personTable(state, people, balances, purchases, totalSpend) {
         people.map((person) => {
           const b = balances[person.id] || { paidCents: 0, consumedCents: 0, balanceCents: 0, purchaseCount: 0 };
           const pct = totalSpend > 0 ? Math.round((b.consumedCents / totalSpend) * 100) : 0;
+          const balanceTitle = describeBalance(b.balanceCents).title;
           return h('div', { className: 'list-item' }, [
             avatarNode(person),
             h('div', { className: 'list-main' }, [
               h('div', { className: 'list-title' }, person.name),
               h('div', { className: 'list-sub' }, `Pagó ${formatCents(b.paidCents)} · Le correspondía ${formatCents(b.consumedCents)} · ${b.purchaseCount} compras · ${pct}% del consumo`),
+              h('div', { className: `list-sub balance-label-${b.balanceCents > 50 ? 'positive' : b.balanceCents < -50 ? 'negative' : 'zero'}` }, balanceTitle),
             ]),
             balancePillNode(b.balanceCents),
           ]);

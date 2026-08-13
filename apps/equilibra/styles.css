@@ -262,6 +262,9 @@ button { border: none; background: none; cursor: pointer; }
 .balance-row .name-block { flex: 1; min-width: 0; }
 .balance-row .name { font-weight: 600; }
 .balance-row .name-sub { font-size: 0.78rem; color: var(--text-muted); }
+.balance-label-positive { color: var(--positive); font-weight: 600; }
+.balance-label-negative { color: var(--negative); font-weight: 600; }
+.balance-label-zero { color: var(--text-muted); }
 .balance-pill {
   font-weight: 700;
   font-size: 0.95rem;

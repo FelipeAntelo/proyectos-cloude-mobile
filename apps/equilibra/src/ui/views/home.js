@@ -4,8 +4,9 @@ import { formatCents, parseAmountToCents } from '../../logic/money.js';
 import { equilibriumScore } from '../../logic/equilibrium.js';
 import { recommendNextPayer } from '../../logic/recommendation.js';
 import { filterByPeriod } from '../../logic/period.js';
+import { describeBalance } from '../../logic/wording.js';
 import { avatarNode } from '../components/avatar.js';
-import { balancePillNode } from '../components/balancePill.js';
+import { balancePillNode, balanceLabelNode } from '../components/balancePill.js';
 import { openSheet } from '../components/sheet.js';
 import { openAddPurchase } from './addPurchase.js';
 
@@ -40,7 +41,7 @@ export function renderHome() {
 
     recommendationCard(state, activePeople),
 
-    h('div', { className: 'section-title' }, 'Balances'),
+    h('div', { className: 'section-title' }, 'Cómo está cada quien'),
     h('div', { className: 'card' }, [balancesList(activePeople, balances)]),
 
     h(
@@ -76,6 +77,7 @@ function balancesList(people, balances) {
         avatarNode(person),
         h('div', { className: 'name-block' }, [
           h('div', { className: 'name' }, person.name),
+          balanceLabelNode(entry.balanceCents),
           h('div', { className: 'balance-bar-track' }, [
             h('div', {
               className: 'balance-bar-fill',
@@ -99,17 +101,18 @@ function recommendationCard(state, activePeople) {
   }
 
   const payer = state.people.find((p) => p.id === rec.payerId);
+  const payerBalance = state.balances[payer.id]?.balanceCents ?? 0;
+  const payerDesc = describeBalance(payerBalance);
+
+  const detail =
+    payerDesc.kind === 'pending'
+      ? `Tiene ${formatCents(payerDesc.amountCents)} de aporte pendiente: pagando la próxima compra se pone al día.`
+      : `Pagando ~${formatCents(rec.amountCents)} (promedio reciente de compras), el grupo queda más parejo.`;
 
   return h('div', { className: 'rec-card' }, [
-    h('div', { className: 'rec-label' }, 'Próximo pago recomendado'),
+    h('div', { className: 'rec-label' }, 'Recomendado para pagar después'),
     h('div', { className: 'rec-name' }, [avatarNode(payer), payer.name]),
-    h(
-      'p',
-      { className: 'rec-detail' },
-      `Si ${payer.name} paga ~${formatCents(rec.amountCents)} (promedio reciente), el desequilibrio del grupo ${
-        rec.improvementPct > 0 ? `baja un ${rec.improvementPct}%` : 'se mantiene estable'
-      }.`
-    ),
+    h('p', { className: 'rec-detail' }, detail),
     h(
       'button',
       { className: 'btn btn-secondary', style: { marginTop: '12px' }, onClick: () => openSimulator(state, activePeople) },
@@ -151,8 +154,8 @@ function openSimulator(state, activePeople) {
             'div',
             { className: 'muted', style: { fontSize: '0.85rem' } },
             rec.improvementPct > 0
-              ? `El desequilibrio del grupo bajaría un ${rec.improvementPct}%.`
-              : 'El grupo ya está bien equilibrado con este monto.'
+              ? `El grupo queda un ${rec.improvementPct}% más parejo.`
+              : 'El grupo ya está bastante parejo con este monto.'
           ),
         ]),
       ])

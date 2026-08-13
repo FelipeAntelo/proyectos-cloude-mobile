@@ -1,9 +1,28 @@
 // División de una compra entre participantes, siempre en centavos enteros.
 // Invariante que ambas funciones garantizan: sum(shares) === amountCents exactamente.
 
+function hashSeed(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i += 1) {
+    h = (h * 31 + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
 /**
- * División igualitaria. El resto de centavos que no divide exacto se reparte
- * de a un centavo, en el orden de `participantIds`, para que la suma cierre exacta.
+ * División igualitaria. El resto de centavos que no divide exacto (ej. Bs 55
+ * entre 3 personas: 18.33 / 18.33 / 18.34) se reparte de a un centavo.
+ *
+ * Política de reparto del resto: en vez de darle siempre el centavo extra a
+ * quienes aparecen primero en `participantIds` (lo que sesga sistemáticamente
+ * a la misma persona si, por ejemplo, siempre se selecciona en el mismo orden
+ * o siempre paga la primera persona de la lista), el punto de partida rota de
+ * forma determinista según un hash del monto y el conjunto de participantes.
+ * Así, para la MISMA compra el resultado es siempre idéntico (recalculable de
+ * forma segura), pero a lo largo de muchas compras el centavo de más no cae
+ * siempre en la misma persona. Es una decisión deliberadamente simple: no
+ * hace falta un historial ni estado adicional, solo los datos de la propia
+ * compra.
  * @param {number} amountCents
  * @param {string[]} participantIds
  * @returns {Record<string, number>} personId -> centavos
@@ -21,9 +40,18 @@ export function splitEqual(amountCents, participantIds) {
   const remainder = amountCents - base * n;
 
   const shares = {};
-  participantIds.forEach((id, index) => {
-    shares[id] = base + (index < remainder ? 1 : 0);
+  participantIds.forEach((id) => {
+    shares[id] = base;
   });
+
+  if (remainder > 0) {
+    const start = hashSeed(`${amountCents}:${participantIds.join(',')}`) % n;
+    for (let i = 0; i < remainder; i += 1) {
+      const id = participantIds[(start + i) % n];
+      shares[id] += 1;
+    }
+  }
+
   return shares;
 }
 

@@ -1,6 +1,7 @@
-// Datos de demostración, solo para probar la app (balances variados, categorías,
-// compensaciones, recomendaciones). Se cargan únicamente si el usuario lo pide
-// explícitamente desde Ajustes — nunca automáticamente.
+// Datos de demostración, solo para probar la app (saldos variados, categorías,
+// devoluciones parciales/completas, transferencias, recomendaciones). Se
+// cargan únicamente si el usuario lo pide explícitamente desde Ajustes —
+// nunca automáticamente.
 
 import * as repo from '../db/repositories.js';
 import { splitEqual, splitWeighted } from '../logic/split.js';
@@ -46,11 +47,12 @@ export async function loadDemoData() {
     { payerId: ids.carlos, amountCents: 2000, categoryId: catCafe.id, concept: 'Café rápido', participants: [ids.carlos, ids.ana], daysAgo: 1 },
   ];
 
+  const createdPurchases = [];
   for (const p of purchases) {
     const splitMode = p.weighted ? 'weighted' : 'equal';
     const shares = p.weighted ? splitWeighted(p.amountCents, p.weighted) : splitEqual(p.amountCents, p.participants);
     // eslint-disable-next-line no-await-in-loop
-    await repo.createPurchase({
+    const created = await repo.createPurchase({
       datetime: daysAgoIso(p.daysAgo),
       concept: p.concept,
       categoryId: p.categoryId,
@@ -63,12 +65,36 @@ export async function loadDemoData() {
       shares,
       note: '',
     });
+    createdPurchases.push(created);
   }
 
+  // Almuerzo de equipo (Bs 120, paga Felipe, Bs 30 c/u): Carlos devuelve una
+  // parte y Diego la totalidad, para mostrar los tres estados de una compra
+  // (pendiente / parcialmente saldada para Carlos / saldada para Diego).
+  const almuerzo = createdPurchases[0];
+  await repo.createSettlement({
+    datetime: daysAgoIso(15),
+    fromPersonId: ids.carlos,
+    toPersonId: ids.felipe,
+    purchaseId: almuerzo.id,
+    amountCents: 1500,
+    note: '',
+  });
+  await repo.createSettlement({
+    datetime: daysAgoIso(14),
+    fromPersonId: ids.diego,
+    toPersonId: ids.felipe,
+    purchaseId: almuerzo.id,
+    amountCents: 3000,
+    note: '',
+  });
+
+  // Transferencia general, sin ligar a ninguna compra puntual.
   await repo.createSettlement({
     datetime: daysAgoIso(2),
     fromPersonId: ids.diego,
     toPersonId: ids.felipe,
+    purchaseId: null,
     amountCents: 4000,
     note: 'Transferencia por QR',
   });

@@ -22,7 +22,7 @@ export function renderSettings() {
 
     h('div', { className: 'section-title' }, 'Datos de demostración'),
     h('div', { className: 'card stack-12' }, [
-      h('p', { className: 'muted' }, 'Carga personas y compras ficticias para probar la app (balances variados, categorías, compensaciones). No lo uses si ya tenés datos reales que querés conservar limpios.'),
+      h('p', { className: 'muted' }, 'Carga personas y compras ficticias para probar la app (saldos variados, categorías, devoluciones y transferencias). No lo uses si ya tenés datos reales que querés conservar limpios.'),
       h('button', { className: 'btn btn-secondary btn-block', onClick: confirmLoadDemo }, '🧪 Cargar datos de demostración'),
     ]),
   ]);

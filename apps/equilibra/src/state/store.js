@@ -132,13 +132,18 @@ export async function editPurchase(id, rawInput) {
   return refreshFrom(() => repo.updatePurchase(id, payload));
 }
 
-export async function removePurchase(id) {
-  return refreshFrom(() => repo.deletePurchase(id));
+/** Cuántas devoluciones/transferencias quedarían huérfanas si se borra esta compra. Para confirmar con el usuario antes de llamar a removePurchase. */
+export async function getSettlementsForPurchase(purchaseId) {
+  return repo.listSettlementsForPurchase(purchaseId);
 }
 
-// ---------- Compensaciones ----------
+export async function removePurchase(id) {
+  return refreshFrom(() => repo.deletePurchaseWithSettlements(id));
+}
 
-export async function addSettlement({ amountInput, fromPersonId, toPersonId, note, datetime }) {
+// ---------- Transferencias (transferencia general o devolución ligada a una compra) ----------
+
+export async function addSettlement({ amountInput, fromPersonId, toPersonId, purchaseId, note, datetime }) {
   const amountCents = parseAmountToCents(amountInput);
   const errors = validateSettlementInput({
     amountCents,
@@ -149,11 +154,11 @@ export async function addSettlement({ amountInput, fromPersonId, toPersonId, not
   if (errors.length > 0) throw new Error(errors.join(' '));
 
   return refreshFrom(() =>
-    repo.createSettlement({ amountCents, fromPersonId, toPersonId, note, datetime })
+    repo.createSettlement({ amountCents, fromPersonId, toPersonId, purchaseId: purchaseId || null, note, datetime })
   );
 }
 
-export async function editSettlement(id, { amountInput, fromPersonId, toPersonId, note, datetime }) {
+export async function editSettlement(id, { amountInput, fromPersonId, toPersonId, purchaseId, note, datetime }) {
   const amountCents = parseAmountToCents(amountInput);
   const errors = validateSettlementInput({
     amountCents,
@@ -164,7 +169,7 @@ export async function editSettlement(id, { amountInput, fromPersonId, toPersonId
   if (errors.length > 0) throw new Error(errors.join(' '));
 
   return refreshFrom(() =>
-    repo.updateSettlement(id, { amountCents, fromPersonId, toPersonId, note, datetime })
+    repo.updateSettlement(id, { amountCents, fromPersonId, toPersonId, purchaseId: purchaseId || null, note, datetime })
   );
 }
 

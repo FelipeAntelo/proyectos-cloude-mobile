@@ -14,6 +14,7 @@ export function openAddSettlement({ settlement } = {}) {
     amountInput: settlement ? String(settlement.amountCents / 100) : '',
     fromPersonId: settlement ? settlement.fromPersonId : people[0]?.id || null,
     toPersonId: settlement ? settlement.toPersonId : people[1]?.id || null,
+    purchaseId: settlement ? settlement.purchaseId || null : null,
     note: settlement ? settlement.note : '',
     datetime: settlement ? settlement.datetime : new Date().toISOString(),
   };
@@ -101,20 +102,20 @@ export function openAddSettlement({ settlement } = {}) {
           try {
             if (isEdit) {
               await editSettlement(settlement.id, form);
-              showToast('Compensación actualizada');
+              showToast('Transferencia actualizada');
             } else {
               await addSettlement(form);
-              showToast('Compensación registrada');
+              showToast('Transferencia registrada');
             }
             closeSheet();
           } catch (err) {
-            setError(err.message || 'No se pudo guardar la compensación.');
+            setError(err.message || 'No se pudo guardar la transferencia.');
           }
         },
       },
-      isEdit ? 'Guardar cambios' : 'Registrar compensación'
+      isEdit ? 'Guardar cambios' : 'Registrar transferencia'
     ),
   ]);
 
-  openSheet(isEdit ? 'Editar compensación' : 'Registrar compensación', content);
+  openSheet(isEdit ? 'Editar transferencia' : 'Transferencia entre personas', content);
 }

@@ -1,5 +1,6 @@
 import { h } from '../../utils/dom.js';
 import { openSheet, closeSheet } from '../components/sheet.js';
+import { icon } from '../components/icons.js';
 import { openAddPurchase } from './addPurchase.js';
 import { openAddSettlement } from './addSettlement.js';
 
@@ -11,7 +12,7 @@ export function openAddChoice() {
         className: 'btn btn-primary btn-block',
         onClick: () => { closeSheet(); setTimeout(openAddPurchase, 180); },
       },
-      '🧾 Registrar compra'
+      [icon('receipt', { size: 'sm' }), 'Registrar compra']
     ),
     h(
       'button',
@@ -19,7 +20,7 @@ export function openAddChoice() {
         className: 'btn btn-secondary btn-block',
         onClick: () => { closeSheet(); setTimeout(openAddSettlement, 180); },
       },
-      '⇄ Transferencia entre personas'
+      [icon('transfer', { size: 'sm' }), 'Transferencia entre personas']
     ),
   ]);
 

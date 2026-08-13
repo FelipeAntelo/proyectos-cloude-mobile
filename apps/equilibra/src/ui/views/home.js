@@ -6,7 +6,8 @@ import { recommendNextPayer } from '../../logic/recommendation.js';
 import { filterByPeriod } from '../../logic/period.js';
 import { describeBalance } from '../../logic/wording.js';
 import { avatarNode } from '../components/avatar.js';
-import { balancePillNode, balanceLabelNode } from '../components/balancePill.js';
+import { balanceAmountNode } from '../components/balancePill.js';
+import { icon } from '../components/icons.js';
 import { openSheet } from '../components/sheet.js';
 import { openAddPurchase } from './addPurchase.js';
 
@@ -22,82 +23,67 @@ export function renderHome() {
   if (activePeople.length === 0) {
     return h('div', { className: 'screen' }, [
       h('div', { className: 'topbar' }, [h('h1', { className: 'page-title' }, 'Equilibra')]),
-      emptyState('👋', 'Sumá a tu equipo', 'Andá a "Grupo" para agregar compañeros y empezar a registrar gastos.'),
+      emptyState('group', 'Sumá a tu equipo', 'Andá a "Grupo" para agregar compañeros y empezar a registrar gastos.'),
+    ]);
+  }
+
+  if (state.purchases.length === 0 && state.settlements.length === 0) {
+    return h('div', { className: 'screen' }, [
+      h('div', { className: 'topbar' }, [
+        h('h1', { className: 'page-title' }, 'Equilibra'),
+        h('a', { className: 'icon-btn', href: '#/settings', 'aria-label': 'Ajustes' }, [icon('settings', { size: 'md' })]),
+      ]),
+      emptyState(
+        'receipt',
+        'Todavía no hay movimientos',
+        'Registrá la primera compra para empezar a equilibrar los aportes del grupo.',
+        h('button', { className: 'btn btn-primary', onClick: () => openAddPurchase() }, 'Registrar compra')
+      ),
     ]);
   }
 
   const screen = h('div', { className: 'screen' }, [
     h('div', { className: 'topbar' }, [
       h('h1', { className: 'page-title' }, 'Equilibra'),
-      h('a', { className: 'icon-btn', href: '#/settings', 'aria-label': 'Ajustes' }, '⚙️'),
+      h('a', { className: 'icon-btn', href: '#/settings', 'aria-label': 'Ajustes' }, [icon('settings', { size: 'md' })]),
     ]),
 
-    h('div', { className: 'stat-grid' }, [
-      statTile(formatCents(monthTotalCents), 'Gasto este mes'),
-      statTile(String(monthPurchases.length), 'Compras este mes'),
-      statTile(String(activePeople.length), 'Personas activas'),
-      statTile(`${score}%`, 'Equilibrio del grupo'),
-    ]),
+    h('div', { className: 'home-lead' }, [formatCents(monthTotalCents), h('span', { className: 'lead-suffix' }, 'compartidos este mes')]),
+    h('div', { className: 'home-substat' }, `${activePeople.length} ${activePeople.length === 1 ? 'persona' : 'personas'} · ${score}% equilibrado`),
 
-    recommendationCard(state, activePeople),
+    h('div', { className: 'divider-top' }, [recommendationBlock(state, activePeople)]),
 
     h('div', { className: 'section-title' }, 'Cómo está cada quien'),
-    h('div', { className: 'card' }, [balancesList(activePeople, balances)]),
-
-    h(
-      'button',
-      {
-        className: 'btn btn-primary btn-block',
-        style: { marginTop: '16px' },
-        onClick: () => openAddPurchase(),
-      },
-      '+ Registrar gasto'
-    ),
+    balancesList(activePeople, balances),
   ]);
 
   return screen;
 }
 
-function statTile(value, label) {
-  return h('div', { className: 'stat-tile' }, [h('div', { className: 'value' }, value), h('div', { className: 'label' }, label)]);
-}
-
 function balancesList(people, balances) {
   const sorted = [...people].sort((a, b) => (balances[b.id]?.balanceCents ?? 0) - (balances[a.id]?.balanceCents ?? 0));
-  const maxAbs = Math.max(1, ...sorted.map((p) => Math.abs(balances[p.id]?.balanceCents ?? 0)));
 
   return h(
     'div',
     { className: 'list' },
     sorted.map((person) => {
       const entry = balances[person.id] || { balanceCents: 0 };
-      const pct = Math.min(100, (Math.abs(entry.balanceCents) / maxAbs) * 100);
-      const mood = entry.balanceCents > 50 ? 'positive' : entry.balanceCents < -50 ? 'negative' : 'zero';
       return h('div', { className: 'balance-row' }, [
         avatarNode(person),
-        h('div', { className: 'name-block' }, [
-          h('div', { className: 'name' }, person.name),
-          balanceLabelNode(entry.balanceCents),
-          h('div', { className: 'balance-bar-track' }, [
-            h('div', {
-              className: 'balance-bar-fill',
-              style: { width: `${pct}%`, background: `var(--${mood === 'zero' ? 'neutral' : mood})` },
-            }),
-          ]),
-        ]),
-        balancePillNode(entry.balanceCents),
+        h('div', { className: 'name-block' }, [h('div', { className: 'name' }, person.name)]),
+        balanceAmountNode(entry.balanceCents),
       ]);
     })
   );
 }
 
-function recommendationCard(state, activePeople) {
+function recommendationBlock(state, activePeople) {
   const rec = recommendNextPayer(state.people, state.purchases, state.settlements, {
     participantIds: activePeople.map((p) => p.id),
   });
 
   if (!rec) {
-    return h('div', { className: 'rec-card' }, [h('p', { className: 'muted' }, 'Agregá al menos dos personas activas para ver una recomendación.')]);
+    return h('p', { className: 'muted' }, 'Agregá al menos dos personas activas para ver una recomendación.');
   }
 
   const payer = state.people.find((p) => p.id === rec.payerId);
@@ -106,18 +92,14 @@ function recommendationCard(state, activePeople) {
 
   const detail =
     payerDesc.kind === 'pending'
-      ? `Tiene ${formatCents(payerDesc.amountCents)} de aporte pendiente: pagando la próxima compra se pone al día.`
-      : `Pagando ~${formatCents(rec.amountCents)} (promedio reciente de compras), el grupo queda más parejo.`;
+      ? `Tiene ${formatCents(payerDesc.amountCents)} pendientes: pagando la próxima compra se pone al día.`
+      : `Pagando ~${formatCents(rec.amountCents)} (promedio reciente), el grupo queda más parejo.`;
 
-  return h('div', { className: 'rec-card' }, [
-    h('div', { className: 'rec-label' }, 'Recomendado para pagar después'),
+  return h('div', { className: 'rec-block' }, [
+    h('div', { className: 'rec-label' }, 'Le tocaría pagar a'),
     h('div', { className: 'rec-name' }, [avatarNode(payer), payer.name]),
     h('p', { className: 'rec-detail' }, detail),
-    h(
-      'button',
-      { className: 'btn btn-secondary', style: { marginTop: '12px' }, onClick: () => openSimulator(state, activePeople) },
-      'Calcular quién paga'
-    ),
+    h('button', { className: 'btn btn-secondary', onClick: () => openSimulator(state, activePeople) }, 'Calcular con otro monto'),
   ]);
 }
 
@@ -171,14 +153,15 @@ function openSimulator(state, activePeople) {
   ]);
 
   updateResult();
-  openSheet('Calcular quién paga', content);
+  openSheet('Calcular con otro monto', content);
   setTimeout(() => input.focus(), 50);
 }
 
-export function emptyState(emoji, title, message) {
+export function emptyState(iconName, title, message, action) {
   return h('div', { className: 'empty-state' }, [
-    h('div', { className: 'emoji', 'aria-hidden': 'true' }, emoji),
+    h('div', { className: 'empty-icon' }, [icon(iconName, { size: 'lg' })]),
     h('h3', {}, title),
     h('p', {}, message),
+    action || null,
   ]);
 }

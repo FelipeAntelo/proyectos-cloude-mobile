@@ -6,6 +6,7 @@ import { filterByPeriod, PERIODS } from '../../logic/period.js';
 import { computePurchaseRefunds, purchaseStatus } from '../../logic/refunds.js';
 import { PURCHASE_STATUS_LABELS, PURCHASE_STATUS_HINTS } from '../../logic/wording.js';
 import { avatarNode } from '../components/avatar.js';
+import { icon } from '../components/icons.js';
 import { openSheet, closeSheet } from '../components/sheet.js';
 import { confirmDialog } from '../components/confirm.js';
 import { showToast } from '../components/toast.js';
@@ -43,10 +44,10 @@ function searchAndFilters(state, onChange) {
   const wrap = h('div', {});
 
   const search = h('div', { className: 'search-wrap' }, [
-    h('span', { className: 'search-icon', 'aria-hidden': 'true' }, '🔎'),
+    h('span', { className: 'search-icon' }, [icon('search', { size: 'sm' })]),
     h('input', {
       type: 'search',
-      placeholder: 'Buscar por concepto, nota o persona…',
+      placeholder: 'Buscar compra o persona…',
       'aria-label': 'Buscar en el historial',
       value: filters.search,
       onInput: (e) => { filters.search = e.target.value; onChange(); },
@@ -140,7 +141,7 @@ function buildList(state) {
   const movements = buildMovements(state).filter((m) => matchesFilters(state, m));
 
   if (movements.length === 0) {
-    return emptyState('🗂️', 'Sin resultados', 'No hay movimientos que coincidan con los filtros elegidos.');
+    return emptyState('search', 'Sin resultados', 'No hay movimientos que coincidan con los filtros elegidos.');
   }
 
   const groups = [];
@@ -176,10 +177,10 @@ function movementRow(state, movement) {
       'div',
       { className: 'list-item', role: 'button', tabindex: '0', onClick: () => openPurchaseDetail(state, p) },
       [
-        h('div', { className: 'list-icon', 'aria-hidden': 'true' }, '🧾'),
+        h('div', { className: 'list-icon' }, [icon('receipt', { size: 'sm' })]),
         h('div', { className: 'list-main' }, [
           h('div', { className: 'list-title' }, p.concept),
-          h('div', { className: 'list-sub' }, `${payer ? payer.name : '—'} · ${formatTime(p.datetime)} · ${p.participantIds.length} personas`),
+          h('div', { className: 'list-sub' }, `${payer ? payer.name : '—'} pagó · ${p.participantIds.length} personas`),
         ]),
         h('div', { className: 'list-amount' }, formatCents(p.amountCents)),
       ]
@@ -196,15 +197,13 @@ function movementRow(state, movement) {
     'div',
     { className: 'list-item', role: 'button', tabindex: '0', onClick: () => openSettlementDetail(state, s) },
     [
-      h('div', { className: 'list-icon', 'aria-hidden': 'true' }, refund ? '↩️' : '⇄'),
+      h('div', { className: 'list-icon' }, [icon(refund ? 'refund' : 'transfer', { size: 'sm' })]),
       h('div', { className: 'list-main' }, [
         h('div', { className: 'list-title' }, `${from ? from.name : '—'} → ${to ? to.name : '—'}`),
         h(
           'div',
           { className: 'list-sub' },
-          refund
-            ? `Devolución de "${linkedPurchase ? linkedPurchase.concept : 'una compra'}" · ${formatTime(s.datetime)}`
-            : `Transferencia · ${formatTime(s.datetime)}`
+          refund ? `Devolución · ${linkedPurchase ? linkedPurchase.concept : 'compra eliminada'}` : 'Transferencia'
         ),
       ]),
       h('div', { className: 'list-amount' }, formatCents(s.amountCents)),
@@ -232,13 +231,15 @@ function openPurchaseDetail(state, purchase) {
       const person = state.people.find((p) => p.id === id);
       const progress = refundProgress[id] || { owedCents: purchase.shares[id] || 0, refundedCents: 0, remainingCents: purchase.shares[id] || 0, settled: false };
 
-      return h('div', { className: 'card', style: { marginTop: '8px' } }, [
+      return h('div', {}, [
         h('div', { className: 'row gap-8' }, [avatarNode(person, { size: 'sm' }), h('strong', {}, person ? person.name : '—')]),
-        h('div', { className: 'row between', style: { marginTop: '8px' } }, [h('span', { className: 'muted' }, 'Le correspondía'), h('span', {}, formatCents(progress.owedCents))]),
-        h('div', { className: 'row between', style: { marginTop: '4px' } }, [h('span', { className: 'muted' }, 'Ya devolvió'), h('span', {}, formatCents(progress.refundedCents))]),
-        h('div', { className: 'row between', style: { marginTop: '4px' } }, [
-          h('span', { className: 'muted' }, 'Falta devolver'),
-          h('strong', { style: { color: progress.settled ? 'var(--positive)' : 'var(--negative)' } }, progress.settled ? 'Nada — saldada' : formatCents(progress.remainingCents)),
+        h('div', { className: 'kv-group', style: { marginTop: '6px' } }, [
+          h('div', { className: 'kv-row' }, [h('span', { className: 'kv-label' }, 'Le correspondía'), h('span', { className: 'kv-value' }, formatCents(progress.owedCents))]),
+          h('div', { className: 'kv-row' }, [h('span', { className: 'kv-label' }, 'Ya devolvió'), h('span', { className: 'kv-value' }, formatCents(progress.refundedCents))]),
+          h('div', { className: 'kv-row' }, [
+            h('span', { className: 'kv-label' }, 'Falta devolver'),
+            h('span', { className: `kv-value ${progress.settled ? 'balance-label-positive' : 'balance-label-negative'}` }, progress.settled ? 'Saldada' : formatCents(progress.remainingCents)),
+          ]),
         ]),
         !progress.settled
           ? h(
@@ -256,25 +257,25 @@ function openPurchaseDetail(state, purchase) {
 
   const content = h('div', {}, [
     h('p', { className: 'muted' }, formatLong(purchase.datetime)),
-    h('div', { className: 'card' }, [
-      h('div', { className: 'row between' }, [h('strong', {}, 'Total'), h('strong', {}, formatCents(purchase.amountCents))]),
-      h('div', { className: 'row between', style: { marginTop: '4px' } }, [h('span', { className: 'faint' }, category ? category.name : 'Sin categoría'), purchaseStatusBadge(status)]),
-      h('p', { className: 'faint', style: { marginTop: '6px' } }, PURCHASE_STATUS_HINTS[status]),
+
+    h('div', { className: 'row between', style: { marginTop: '10px', alignItems: 'baseline' } }, [
+      h('div', { className: 'home-lead', style: { marginTop: 0 } }, formatCents(purchase.amountCents)),
+      purchaseStatusBadge(status),
     ]),
+    h('p', { className: 'faint' }, `${category ? category.name : 'Sin categoría'} · ${PURCHASE_STATUS_HINTS[status]}`),
 
     h('div', { className: 'section-title' }, 'Pagó'),
     h('div', { className: 'card' }, [
       h('div', { className: 'row gap-8' }, [avatarNode(payer), h('strong', {}, payer ? payer.name : '—')]),
-      h('div', { className: 'row between', style: { marginTop: '8px' } }, [h('span', { className: 'muted' }, 'Le correspondía'), h('span', {}, formatCents(payerShare))]),
-      h('div', { className: 'row between', style: { marginTop: '4px' } }, [h('span', { className: 'muted' }, 'Pagó'), h('span', {}, formatCents(purchase.amountCents))]),
-      h('div', { className: 'row between', style: { marginTop: '4px' } }, [
-        h('span', { className: 'muted' }, 'Adelantó por el grupo'),
-        h('strong', { style: { color: 'var(--positive)' } }, formatCents(payerSurplus)),
+      h('div', { className: 'kv-group', style: { marginTop: '8px' } }, [
+        h('div', { className: 'kv-row' }, [h('span', { className: 'kv-label' }, 'Le correspondía'), h('span', { className: 'kv-value' }, formatCents(payerShare))]),
+        h('div', { className: 'kv-row' }, [h('span', { className: 'kv-label' }, 'Pagó en total'), h('span', { className: 'kv-value' }, formatCents(purchase.amountCents))]),
+        h('div', { className: 'kv-row' }, [h('span', { className: 'kv-label' }, 'Adelantó por el grupo'), h('span', { className: 'kv-value balance-label-positive' }, formatCents(payerSurplus))]),
       ]),
     ]),
 
-    h('div', { className: 'section-title' }, `Participaron ${purchase.participantIds.length} personas (división ${purchase.splitMode === 'weighted' ? 'personalizada' : 'igualitaria'})`),
-    h('div', {}, participantRows),
+    h('div', { className: 'section-title' }, `Participaron ${purchase.participantIds.length} personas · división ${purchase.splitMode === 'weighted' ? 'personalizada' : 'igualitaria'}`),
+    h('div', { className: 'divided' }, participantRows),
 
     purchase.note ? h('div', {}, [h('div', { className: 'section-title' }, 'Nota'), h('p', {}, purchase.note)]) : null,
 
@@ -316,11 +317,13 @@ function openSettlementDetail(state, settlement) {
     h('div', { className: 'card' }, [
       h('div', { className: 'row between gap-12' }, [
         h('div', { className: 'row gap-8' }, [avatarNode(from), from ? from.name : '—']),
-        h('span', { 'aria-hidden': 'true' }, '→'),
+        icon('transfer', { size: 'sm', className: 'faint' }),
         h('div', { className: 'row gap-8' }, [avatarNode(to), to ? to.name : '—']),
       ]),
-      h('div', { className: 'row between', style: { marginTop: '10px' } }, [h('strong', {}, 'Monto'), h('strong', {}, formatCents(settlement.amountCents))]),
-      refund ? h('div', { className: 'row between', style: { marginTop: '4px' } }, [h('span', { className: 'muted' }, 'Relacionado con'), h('span', {}, linkedPurchase ? linkedPurchase.concept : 'Compra eliminada')]) : null,
+      h('div', { className: 'kv-group', style: { marginTop: '10px' } }, [
+        h('div', { className: 'kv-row' }, [h('span', { className: 'kv-label' }, 'Monto'), h('span', { className: 'kv-value' }, formatCents(settlement.amountCents))]),
+        refund ? h('div', { className: 'kv-row' }, [h('span', { className: 'kv-label' }, 'Relacionado con'), h('span', { className: 'kv-value' }, linkedPurchase ? linkedPurchase.concept : 'Compra eliminada')]) : null,
+      ]),
     ]),
     settlement.note ? h('div', {}, [h('div', { className: 'section-title' }, 'Nota'), h('p', {}, settlement.note)]) : null,
     h('div', { className: 'confirm-actions' }, [

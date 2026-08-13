@@ -1,6 +1,7 @@
 import { h } from '../../utils/dom.js';
 import { addPerson } from '../../state/store.js';
 import { showToast } from '../components/toast.js';
+import { icon } from '../components/icons.js';
 
 export function renderOnboarding() {
   let step = 0; // 0 = intro, 1 = agregar personas
@@ -12,7 +13,7 @@ export function renderOnboarding() {
     container.replaceChildren();
     if (step === 0) {
       container.append(
-        h('div', { className: 'mark', 'aria-hidden': 'true' }, '⚖️'),
+        h('div', { className: 'mark' }, [icon('balanceMark', { size: 'lg', className: 'onboarding-mark' })]),
         h('h1', {}, 'Equilibra lo que ponen entre todos.'),
         h(
           'p',
@@ -46,8 +47,8 @@ export function renderOnboarding() {
             h('button', {
               'aria-label': `Quitar a ${name}`,
               onClick: () => { names.splice(i, 1); draw(); },
-              style: { marginLeft: '4px' },
-            }, '✕'),
+              style: { marginLeft: '4px', display: 'inline-flex' },
+            }, [icon('close', { size: 'sm' })]),
           ]),
         ])
       )

@@ -7,6 +7,7 @@ import { computeBalances } from '../logic/balances.js';
 import { buildPurchasePayload } from '../logic/purchaseBuilder.js';
 import { validateSettlementInput } from '../logic/validation.js';
 import { parseAmountToCents } from '../logic/money.js';
+import { hasDemoData as computeHasDemoData } from '../logic/demoCleanup.js';
 
 const listeners = new Set();
 
@@ -18,10 +19,12 @@ const state = {
   purchases: [],
   settlements: [],
   balances: {},
+  hasDemoData: false,
 };
 
-function recomputeBalances() {
+function recomputeDerived() {
   state.balances = computeBalances(state.people, state.purchases, state.settlements);
+  state.hasDemoData = computeHasDemoData(state);
 }
 
 function notify() {
@@ -50,7 +53,7 @@ export async function init() {
   state.products = products;
   state.purchases = purchases;
   state.settlements = settlements;
-  recomputeBalances();
+  recomputeDerived();
   state.loading = false;
   notify();
   return state;
@@ -70,7 +73,7 @@ async function refreshFrom(mutator) {
   state.products = products;
   state.purchases = purchases;
   state.settlements = settlements;
-  recomputeBalances();
+  recomputeDerived();
   notify();
 }
 
@@ -189,6 +192,14 @@ export async function importBackup(backup, options) {
 
 export async function wipeAll() {
   return refreshFrom(() => repo.wipeAllData());
+}
+
+export async function deleteDemoData() {
+  let result;
+  await refreshFrom(async () => {
+    result = await repo.deleteDemoData();
+  });
+  return result;
 }
 
 export async function getSetting(key, fallback) {

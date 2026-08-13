@@ -16,7 +16,7 @@ export async function loadDemoData() {
   const people = {};
   for (const name of ['Felipe', 'Carlos', 'Diego', 'Ana']) {
     // eslint-disable-next-line no-await-in-loop
-    people[name] = await repo.createPerson({ name });
+    people[name] = await repo.createPerson({ name, source: 'demo' });
   }
   const ids = {
     felipe: people.Felipe.id,
@@ -25,15 +25,15 @@ export async function loadDemoData() {
     ana: people.Ana.id,
   };
 
-  const catComida = await repo.createCategory({ name: 'Comida' });
-  const catBebidas = await repo.createCategory({ name: 'Bebidas' });
-  const catCafe = await repo.createCategory({ name: 'Café' });
-  const catSnacks = await repo.createCategory({ name: 'Snacks' });
+  const catComida = await repo.createCategory({ name: 'Comida', source: 'demo' });
+  const catBebidas = await repo.createCategory({ name: 'Bebidas', source: 'demo' });
+  const catCafe = await repo.createCategory({ name: 'Café', source: 'demo' });
+  const catSnacks = await repo.createCategory({ name: 'Snacks', source: 'demo' });
 
-  await repo.createProduct({ name: 'Café', categoryId: catCafe.id });
-  await repo.createProduct({ name: 'Agua', categoryId: catBebidas.id });
-  await repo.createProduct({ name: 'Hielo', categoryId: catBebidas.id });
-  await repo.createProduct({ name: 'Galletas', categoryId: catSnacks.id });
+  await repo.createProduct({ name: 'Café', categoryId: catCafe.id, source: 'demo' });
+  await repo.createProduct({ name: 'Agua', categoryId: catBebidas.id, source: 'demo' });
+  await repo.createProduct({ name: 'Hielo', categoryId: catBebidas.id, source: 'demo' });
+  await repo.createProduct({ name: 'Galletas', categoryId: catSnacks.id, source: 'demo' });
 
   const all = [ids.felipe, ids.carlos, ids.diego, ids.ana];
 
@@ -64,6 +64,7 @@ export async function loadDemoData() {
       weights: p.weighted || null,
       shares,
       note: '',
+      source: 'demo',
     });
     createdPurchases.push(created);
   }
@@ -79,6 +80,7 @@ export async function loadDemoData() {
     purchaseId: almuerzo.id,
     amountCents: 1500,
     note: '',
+    source: 'demo',
   });
   await repo.createSettlement({
     datetime: daysAgoIso(14),
@@ -87,6 +89,7 @@ export async function loadDemoData() {
     purchaseId: almuerzo.id,
     amountCents: 3000,
     note: '',
+    source: 'demo',
   });
 
   // Transferencia general, sin ligar a ninguna compra puntual.
@@ -97,5 +100,6 @@ export async function loadDemoData() {
     purchaseId: null,
     amountCents: 4000,
     note: 'Transferencia por QR',
+    source: 'demo',
   });
 }

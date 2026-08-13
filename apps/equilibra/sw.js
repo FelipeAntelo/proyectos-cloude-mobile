@@ -1,4 +1,4 @@
-const CACHE_NAME = 'equilibra-v2';
+const CACHE_NAME = 'equilibra-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -13,6 +13,7 @@ const APP_SHELL = [
   './src/db/repositories.js',
 
   './src/logic/balances.js',
+  './src/logic/demoCleanup.js',
   './src/logic/equilibrium.js',
   './src/logic/money.js',
   './src/logic/period.js',
@@ -32,6 +33,7 @@ const APP_SHELL = [
   './src/ui/components/balancePill.js',
   './src/ui/components/charts.js',
   './src/ui/components/confirm.js',
+  './src/ui/components/icons.js',
   './src/ui/components/sheet.js',
   './src/ui/components/toast.js',
   './src/ui/views/addChoice.js',

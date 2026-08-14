@@ -75,8 +75,19 @@ export async function init() {
   state.loading = false;
   notify();
 
-  sync.onStatusChange((s) => {
+  let wasSyncing = false;
+  sync.onStatusChange(async (s) => {
     state.sync = s;
+    if (wasSyncing && s.state !== 'syncing') {
+      // Un ciclo de sync recién terminado ya escribió los pulls en IndexedDB,
+      // pero el estado reactivo no se entera solo: sin este reload, cambios
+      // que llegaron de otro dispositivo (compra, transferencia, persona
+      // nueva) quedan invisibles en la UI hasta que alguna otra acción local
+      // dispare un reloadAll() por su cuenta.
+      await reloadAll();
+      state.group = await repo.getActiveGroup();
+    }
+    wasSyncing = s.state === 'syncing';
     notify();
   });
   // El arranque de sync corre en segundo plano — Home ya se ve con lo local.

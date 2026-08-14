@@ -34,6 +34,14 @@ supabase link --project-ref <tu-project-ref>
 supabase db push
 ```
 
+Después, aplicá también
+[`supabase/migrations/0002_realtime.sql`](supabase/migrations/0002_realtime.sql)
+(mismo procedimiento, Opción A o B). Agrega las tablas sincronizadas a la
+publicación `supabase_realtime`, así los cambios se ven casi instantáneos
+entre dispositivos en vez de depender solo del pull periódico (cada 25s). Es
+opcional: sin esto la app sigue sincronizando igual, solo que un poco más
+lento — pero se recomienda aplicarla. También es idempotente.
+
 ## 3. Credenciales públicas
 
 Necesitás dos valores del dashboard (**Project Settings → API**):
@@ -94,14 +102,21 @@ rm -rf node_modules package-lock.json
 ## 7. Probar que sincroniza de verdad
 
 `apps/equilibra/e2e/shared-group.mjs` simula el escenario completo (dos
-navegadores, invitación, compras cruzadas, offline/reconexión) contra un
-proyecto real. Con la app servida en local y las credenciales ya
-configuradas:
+navegadores — iPhone y Android —, invitación, compras cruzadas,
+transferencias, balances idénticos entre dispositivos con invariante
+`sum(balance)=0`, offline/reconexión) contra un proyecto real. Con la app
+servida en local y las credenciales ya configuradas:
 
 ```bash
 cd apps/equilibra && python3 -m http.server 8080 &
 node e2e/shared-group.mjs http://localhost:8080/index.html
 ```
+
+El proyecto gratuito de Supabase limita los sign-ins anónimos a un ritmo muy
+bajo (en la práctica, ~1 por minuto). Cada corrida del script gasta al menos
+2 (uno por dispositivo simulado), así que si lo corrés varias veces seguidas
+podés ver `429 over_request_rate_limit` en la consola del navegador — no es
+un bug de la app, hay que esperar un minuto o dos entre corridas.
 
 ## 8. Decisiones de diseño (resumen técnico)
 

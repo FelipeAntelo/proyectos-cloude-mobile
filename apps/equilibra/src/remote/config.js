@@ -7,8 +7,8 @@
 // exactamente como una instalación local-only (comportamiento por defecto en
 // este repo, ya que no incluimos un proyecto Supabase propio).
 
-export const SUPABASE_URL = '';
-export const SUPABASE_ANON_KEY = '';
+export const SUPABASE_URL = 'https://cfwfhwvoqmcbfpdqciwa.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_Q9TH2E8oP1X2yA-K8f4NJQ_8usawfAZ';
 
 export function isSyncConfigured() {
   return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);

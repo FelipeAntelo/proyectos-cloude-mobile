@@ -1,4 +1,4 @@
-const CACHE_NAME = 'equilibra-v3';
+const CACHE_NAME = 'equilibra-v4';
 const APP_SHELL = [
   './',
   './index.html',
@@ -8,9 +8,18 @@ const APP_SHELL = [
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './vendor/supabase-js.js',
 
   './src/db/db.js',
   './src/db/repositories.js',
+
+  './src/remote/config.js',
+  './src/remote/remoteRepository.js',
+  './src/remote/supabaseClient.js',
+
+  './src/sync/mergeStrategy.js',
+  './src/sync/outbox.js',
+  './src/sync/syncService.js',
 
   './src/logic/balances.js',
   './src/logic/demoCleanup.js',
@@ -42,15 +51,19 @@ const APP_SHELL = [
   './src/ui/views/analysis.js',
   './src/ui/views/categoryProducts.js',
   './src/ui/views/group.js',
+  './src/ui/views/groupEntry.js',
   './src/ui/views/history.js',
   './src/ui/views/home.js',
+  './src/ui/views/inviteAccept.js',
   './src/ui/views/onboarding.js',
   './src/ui/views/refund.js',
   './src/ui/views/settings.js',
+  './src/ui/views/whoAreYou.js',
 
   './src/utils/avatar.js',
   './src/utils/dom.js',
   './src/utils/format.js',
+  './src/utils/inviteUrl.js',
   './src/utils/prefs.js',
   './src/utils/svg.js',
   './src/utils/theme.js',
@@ -76,18 +89,28 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  // Solo el app shell (mismo origen) se cachea y tiene fallback offline. Las
+  // llamadas a Supabase (otro origen: REST/RPC/auth/realtime) pasan de largo
+  // sin cachearse — `response.type` para esas nunca es "basic" — y si fallan
+  // por falta de red, fallan de verdad en vez de recibir el index.html como
+  // si fuera una respuesta válida (rompería el parseo JSON del cliente).
+  const sameOrigin = new URL(event.request.url).origin === self.location.origin;
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request)
         .then((response) => {
-          if (response && response.status === 200 && response.type === 'basic') {
+          if (sameOrigin && response && response.status === 200 && response.type === 'basic') {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
           return response;
         })
-        .catch(() => caches.match('./index.html'));
+        .catch((err) => {
+          if (event.request.mode === 'navigate') return caches.match('./index.html');
+          throw err;
+        });
     })
   );
 });

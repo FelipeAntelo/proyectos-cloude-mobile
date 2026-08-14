@@ -1,15 +1,21 @@
 import { h, mount } from '../utils/dom.js';
-import { getState, subscribe } from '../state/store.js';
+import { getState, subscribe, isGroupSyncAvailable } from '../state/store.js';
 import { bottomNavNode } from './nav.js';
 import { renderOnboarding } from './views/onboarding.js';
+import { renderGroupEntry } from './views/groupEntry.js';
+import { renderInviteAccept } from './views/inviteAccept.js';
+import { renderWhoAreYou } from './views/whoAreYou.js';
 import { renderHome } from './views/home.js';
 import { renderHistory } from './views/history.js';
 import { renderAnalysis } from './views/analysis.js';
 import { renderGroup } from './views/group.js';
 import { renderSettings } from './views/settings.js';
 import { openAddChoice } from './views/addChoice.js';
+import { consumeInviteTokenFromLocation } from '../utils/inviteUrl.js';
 
 const TOP_ROUTES = { '': renderHome, history: renderHistory, analysis: renderAnalysis, group: renderGroup };
+
+let pendingInviteToken = consumeInviteTokenFromLocation();
 
 function parseRoute() {
   return (location.hash || '').replace(/^#\/?/, '');
@@ -34,12 +40,29 @@ export function startRouter() {
       return;
     }
 
-    if (state.people.length === 0) {
-      mount(appRoot, renderOnboarding());
+    // Un link de invitación manda siempre, sin pasar por el onboarding normal.
+    if (pendingInviteToken) {
+      mount(appRoot, renderInviteAccept(pendingInviteToken, () => { pendingInviteToken = null; }));
       return;
     }
 
     const route = parseRoute();
+
+    // "¿Quién sos?" es una pantalla de una sola vez, sin barra inferior, que
+    // se navega explícitamente justo después de entrar a un grupo.
+    if (route === 'who-are-you') {
+      mount(appRoot, renderWhoAreYou());
+      return;
+    }
+
+    // Instalación nueva sin grupo y sin personas todavía: entrada mínima. Si
+    // la sincronización no está configurada en este deploy, el concepto de
+    // "grupo compartido" no aplica — se mantiene el onboarding local de
+    // siempre.
+    if (!state.group && state.people.length === 0) {
+      mount(appRoot, isGroupSyncAvailable() ? renderGroupEntry() : renderOnboarding());
+      return;
+    }
 
     if (route === 'settings') {
       mount(appRoot, h('div', {}, [renderSettings(), bottomNavNode('', openAddChoice)]));

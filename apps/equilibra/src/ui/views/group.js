@@ -1,5 +1,5 @@
 import { h } from '../../utils/dom.js';
-import { getState, addPerson, editPerson, setPersonActive } from '../../state/store.js';
+import { getState, addPerson, editPerson, setPersonActive, isGroupSyncAvailable, shareCurrentGroupData, generateInviteLink, renameActiveGroup } from '../../state/store.js';
 import { formatCents, formatSignedCents } from '../../logic/money.js';
 import { describeBalance } from '../../logic/wording.js';
 import { avatarNode } from '../components/avatar.js';
@@ -11,18 +11,28 @@ import { showToast } from '../components/toast.js';
 import { equilibriumTrendChart } from '../components/charts.js';
 import { computeBalances } from '../../logic/balances.js';
 import { openCategoryProductManager } from './categoryProducts.js';
+import { buildInviteUrl } from '../../utils/inviteUrl.js';
 
 export function renderGroup() {
   const state = getState();
 
   const active = state.people.filter((p) => p.active);
   const inactive = state.people.filter((p) => !p.active);
+  const hasLocalData = state.people.length > 0 || state.purchases.length > 0 || state.settlements.length > 0;
 
   const screen = h('div', { className: 'screen' }, [
     h('div', { className: 'topbar' }, [
-      h('h1', { className: 'page-title' }, 'Grupo'),
+      state.group
+        ? h('button', { className: 'page-title', style: { background: 'none', border: 'none', padding: 0, textAlign: 'left', color: 'inherit', cursor: 'pointer' }, onClick: () => openRenameGroupSheet(state.group) }, state.group.name)
+        : h('h1', { className: 'page-title' }, 'Grupo'),
       h('a', { className: 'icon-btn', href: '#/settings', 'aria-label': 'Ajustes' }, [icon('settings', { size: 'md' })]),
     ]),
+
+    state.group ? groupHeader(state) : null,
+
+    !state.group && isGroupSyncAvailable() && hasLocalData
+      ? h('button', { className: 'btn btn-secondary btn-block', style: { marginTop: '14px' }, onClick: () => openShareGroupSheet() }, [icon('share', { size: 'sm' }), 'Compartir este grupo'])
+      : null,
 
     h('button', { className: 'btn btn-secondary btn-block', style: { marginTop: '14px' }, onClick: () => openAddPersonSheet() }, [icon('plus', { size: 'sm' }), 'Agregar persona']),
 
@@ -46,6 +56,116 @@ export function renderGroup() {
   ]);
 
   return screen;
+}
+
+function groupHeader(state) {
+  const count = state.people.filter((p) => p.active).length;
+  const sync = state.sync || {};
+  let syncLabel = null;
+  if (sync.state === 'offline') syncLabel = 'Sin conexión';
+  else if (sync.pendingCount > 0) syncLabel = `${sync.pendingCount} cambio${sync.pendingCount === 1 ? '' : 's'} pendiente${sync.pendingCount === 1 ? '' : 's'} de sincronizar`;
+
+  return h('div', {}, [
+    h('div', { className: 'home-substat' }, `${count} persona${count === 1 ? '' : 's'}`),
+    syncLabel ? h('div', { className: 'faint', style: { marginTop: '2px' } }, syncLabel) : null,
+    h('button', { className: 'btn btn-secondary btn-block', style: { marginTop: '10px' }, onClick: () => openInviteSheet(state.group) }, [icon('share', { size: 'sm' }), 'Invitar']),
+  ]);
+}
+
+async function openShareGroupSheet() {
+  const nameInput = h('input', { type: 'text', placeholder: 'Ej. Oficina', 'aria-label': 'Nombre del grupo', autofocus: true });
+  const content = h('div', {}, [
+    h('p', { className: 'muted' }, 'Tus personas, compras y transferencias actuales pasan a ser los datos iniciales del grupo. No se pierde ni se duplica nada.'),
+    h('div', { className: 'field', style: { marginTop: '10px' } }, [h('label', {}, 'Nombre del grupo'), nameInput]),
+    h(
+      'button',
+      {
+        className: 'btn btn-primary btn-block',
+        onClick: async () => {
+          const name = nameInput.value.trim();
+          if (!name) return;
+          try {
+            await shareCurrentGroupData(name);
+            closeSheet();
+            showToast('Grupo creado');
+          } catch (err) {
+            showToast(err.message || 'No se pudo compartir el grupo.');
+          }
+        },
+      },
+      'Compartir'
+    ),
+  ]);
+  openSheet('Compartir este grupo', content);
+  setTimeout(() => nameInput.focus(), 50);
+}
+
+async function openInviteSheet(group) {
+  const content = h('div', { className: 'stack-12' }, [h('p', { className: 'muted' }, 'Generando enlace…')]);
+  openSheet('Invitar', content);
+
+  let token;
+  try {
+    token = await generateInviteLink();
+  } catch (err) {
+    content.replaceChildren(h('p', { className: 'muted' }, err.message || 'No se pudo generar el enlace.'));
+    return;
+  }
+
+  const url = buildInviteUrl(token);
+  const shareText = `Únete a nuestro grupo en Equilibra.\n${url}`;
+
+  content.replaceChildren(
+    h('p', { className: 'muted' }, `Cualquiera con este enlace puede sumarse a "${group.name}".`),
+    h('div', { className: 'stack-12', style: { marginTop: '10px' } }, [
+      navigator.share
+        ? h('button', {
+            className: 'btn btn-primary btn-block',
+            onClick: async () => {
+              try {
+                await navigator.share({ title: 'Equilibra', text: 'Únete a nuestro grupo en Equilibra.', url });
+              } catch {
+                /* el usuario canceló el share sheet nativo */
+              }
+            },
+          }, 'Compartir')
+        : null,
+      h('button', {
+        className: `btn ${navigator.share ? 'btn-secondary' : 'btn-primary'} btn-block`,
+        onClick: async () => {
+          try {
+            await navigator.clipboard.writeText(shareText);
+            showToast('Enlace copiado');
+          } catch {
+            showToast('No se pudo copiar el enlace.');
+          }
+        },
+      }, 'Copiar enlace'),
+    ])
+  );
+}
+
+function openRenameGroupSheet(group) {
+  const nameInput = h('input', { type: 'text', value: group.name, 'aria-label': 'Nombre del grupo', autofocus: true });
+  const content = h('div', {}, [
+    h('div', { className: 'field' }, [h('label', {}, 'Nombre del grupo'), nameInput]),
+    h('button', {
+      className: 'btn btn-primary btn-block',
+      onClick: async () => {
+        const name = nameInput.value.trim();
+        if (!name || name === group.name) { closeSheet(); return; }
+        try {
+          await renameActiveGroup(name);
+          showToast('Nombre actualizado');
+          closeSheet();
+        } catch (err) {
+          showToast(err.message || 'No se pudo cambiar el nombre.');
+        }
+      },
+    }, 'Guardar'),
+  ]);
+  openSheet('Nombre del grupo', content);
+  setTimeout(() => nameInput.focus(), 50);
 }
 
 function personList(state, people) {

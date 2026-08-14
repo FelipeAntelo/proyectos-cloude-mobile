@@ -50,6 +50,7 @@ export function renderHome() {
 
     h('div', { className: 'home-lead' }, [formatCents(monthTotalCents), h('span', { className: 'lead-suffix' }, 'compartidos este mes')]),
     h('div', { className: 'home-substat' }, `${activePeople.length} ${activePeople.length === 1 ? 'persona' : 'personas'} · ${score}% equilibrado`),
+    syncStatusLine(state),
 
     h('div', { className: 'divider-top' }, [recommendationBlock(state, activePeople)]),
 
@@ -58,6 +59,17 @@ export function renderHome() {
   ]);
 
   return screen;
+}
+
+/** Discreto y silencioso cuando todo está al día: solo aparece si hay algo que decir. */
+function syncStatusLine(state) {
+  if (!state.group) return null;
+  const sync = state.sync || {};
+  if (sync.state === 'offline') return h('div', { className: 'faint', style: { marginTop: '2px' } }, 'Sin conexión');
+  if (sync.pendingCount > 0) {
+    return h('div', { className: 'faint', style: { marginTop: '2px' } }, `${sync.pendingCount} cambio${sync.pendingCount === 1 ? '' : 's'} pendiente${sync.pendingCount === 1 ? '' : 's'} de sincronizar`);
+  }
+  return null;
 }
 
 function balancesList(people, balances) {

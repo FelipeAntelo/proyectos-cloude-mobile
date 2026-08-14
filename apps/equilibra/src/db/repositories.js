@@ -3,11 +3,74 @@
 // Esta capa está pensada para poder reemplazarse mañana por un RemoteRepository (Supabase/Postgres)
 // sin tocar el resto de la aplicación: firma de funciones estable, entidades con id/timestamps propios.
 
-import { dbGetAll, dbGetAllByIndex, dbGet, dbPut, dbDelete, dbBulkPut, dbClearAll, dbTransaction, ALL_STORES } from './db.js';
+import { dbGetAll, dbGetAllByIndex, dbGet, dbPut, dbDelete, dbBulkPut, dbClearAll, dbTransaction, ALL_STORES, SYNCED_STORES } from './db.js';
 import { uuid } from '../utils/uuid.js';
 import { planDemoCleanup, hasDemoData as computeHasDemoData } from '../logic/demoCleanup.js';
 
 const nowIso = () => new Date().toISOString();
+
+// ---------- Grupo activo / identidad local ----------
+// "Grupo compartido" (v1.3) es opcional: si el dispositivo nunca se conectó a
+// uno, activeGroup es null y todo funciona exactamente como antes (local-only).
+// Cuando hay grupo activo, los create* de abajo estampan `groupId` para que
+// SyncService sepa qué registros subir.
+
+const ACTIVE_GROUP_META_KEY = 'activeGroup';
+const LOCAL_PERSON_META_KEY = 'localPersonId';
+
+export async function getActiveGroup() {
+  return getMeta(ACTIVE_GROUP_META_KEY, null);
+}
+
+async function getActiveGroupId() {
+  const group = await getMeta(ACTIVE_GROUP_META_KEY, null);
+  return group ? group.id : null;
+}
+
+export async function setActiveGroup(group) {
+  return setMeta(ACTIVE_GROUP_META_KEY, group);
+}
+
+export async function clearActiveGroup() {
+  return setMeta(ACTIVE_GROUP_META_KEY, null);
+}
+
+export async function getLocalPersonId() {
+  return getMeta(LOCAL_PERSON_META_KEY, null);
+}
+
+export async function setLocalPersonId(personId) {
+  return setMeta(LOCAL_PERSON_META_KEY, personId);
+}
+
+/**
+ * "Compartir este grupo": estampa `groupId` en TODO lo que ya existe
+ * localmente y todavía no pertenece a ningún grupo. Conserva los UUIDs
+ * actuales (no crea registros nuevos) para que los balances no cambien y no
+ * haya duplicados al subir. Devuelve cuántos registros de cada tipo se
+ * vincularon, para que el llamador pueda encolarlos en el outbox.
+ */
+export async function attachAllLocalDataToGroup(groupId) {
+  return dbTransaction(SYNCED_STORES, 'readwrite', async (tx) => {
+    const touched = {};
+    for (const storeName of SYNCED_STORES) {
+      const store = tx.objectStore(storeName);
+      const all = await new Promise((resolve, reject) => {
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      const ids = [];
+      for (const record of all) {
+        if (record.groupId) continue; // ya pertenece a un grupo: no tocar
+        store.put({ ...record, groupId, updatedAt: nowIso() });
+        ids.push(record.id);
+      }
+      touched[storeName] = ids;
+    }
+    return touched;
+  });
+}
 
 // ---------- Personas ----------
 
@@ -26,6 +89,7 @@ export async function createPerson({ name, color, source }) {
     color: color || null,
     active: true,
     source: source || null,
+    groupId: await getActiveGroupId(),
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -55,6 +119,7 @@ export async function createCategory({ name, source }) {
     name: name.trim(),
     archived: false,
     source: source || null,
+    groupId: await getActiveGroupId(),
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -86,6 +151,7 @@ export async function createProduct({ name, categoryId, source }) {
     archived: false,
     useCount: 0,
     source: source || null,
+    groupId: await getActiveGroupId(),
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -112,7 +178,8 @@ export async function bumpProductUse(id) {
 // ---------- Compras ----------
 
 export async function listPurchases() {
-  return dbGetAll('purchases');
+  const all = await dbGetAll('purchases');
+  return all.filter((p) => !p.deletedAt);
 }
 
 export async function getPurchase(id) {
@@ -135,6 +202,8 @@ export async function createPurchase(data) {
     shares: { ...data.shares },
     note: data.note || '',
     source: data.source || null,
+    groupId: await getActiveGroupId(),
+    createdByPersonId: (await getLocalPersonId()) || null,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -155,7 +224,18 @@ export async function updatePurchase(id, data) {
   return dbPut('purchases', updated);
 }
 
+/**
+ * Borra una compra. Si pertenece a un grupo compartido, no se elimina de
+ * verdad: se marca `deletedAt` (tombstone) para que la sincronización pueda
+ * propagar el borrado sin que un dispositivo que todavía no vio el cambio la
+ * "resucite" en el siguiente pull. Sin grupo activo, se borra de una (mismo
+ * comportamiento que antes de v1.3).
+ */
 export async function deletePurchase(id) {
+  const existing = await dbGet('purchases', id);
+  if (existing && existing.groupId) {
+    return dbPut('purchases', { ...existing, deletedAt: nowIso(), updatedAt: nowIso() });
+  }
   return dbDelete('purchases', id);
 }
 
@@ -165,17 +245,48 @@ export async function deletePurchase(id) {
  * huérfanas apuntando a una compra que ya no existe. El llamador (store.js) es
  * responsable de confirmar con el usuario antes de invocar esto.
  */
+/**
+ * Devuelve `{ count, purchase, settlements }`: `count` para la UI ("se
+ * borraron N devoluciones junto con la compra"), y `purchase`/`settlements`
+ * con los registros tombstoned (o `null`/`[]` si no había grupo activo y se
+ * borraron de verdad) para que el llamador los encole en el outbox.
+ */
 export async function deletePurchaseWithSettlements(purchaseId) {
   return dbTransaction(['purchases', 'settlements'], 'readwrite', async (tx) => {
+    const purchasesStore = tx.objectStore('purchases');
     const settlementsStore = tx.objectStore('settlements');
+    const purchase = await new Promise((resolve, reject) => {
+      const req = purchasesStore.get(purchaseId);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
     const linked = await new Promise((resolve, reject) => {
       const req = settlementsStore.index('purchaseId').getAll(purchaseId);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-    linked.forEach((s) => settlementsStore.delete(s.id));
-    tx.objectStore('purchases').delete(purchaseId);
-    return linked.length;
+    const grouped = Boolean(purchase && purchase.groupId);
+    const stamp = nowIso();
+    const tombstonedSettlements = [];
+    let tombstonedPurchase = null;
+
+    linked.forEach((s) => {
+      if (grouped) {
+        const updated = { ...s, deletedAt: stamp, updatedAt: stamp };
+        settlementsStore.put(updated);
+        tombstonedSettlements.push(updated);
+      } else {
+        settlementsStore.delete(s.id);
+      }
+    });
+    if (grouped) {
+      tombstonedPurchase = { ...purchase, deletedAt: stamp, updatedAt: stamp };
+      purchasesStore.put(tombstonedPurchase);
+    } else if (purchase) {
+      purchasesStore.delete(purchaseId);
+    }
+
+    return { count: linked.length, purchase: tombstonedPurchase, settlements: tombstonedSettlements };
   });
 }
 
@@ -187,7 +298,8 @@ export async function deletePurchaseWithSettlements(purchaseId) {
 // contabilización: es un único movimiento con un dato de contexto opcional.
 
 export async function listSettlements() {
-  return dbGetAll('settlements');
+  const all = await dbGetAll('settlements');
+  return all.filter((s) => !s.deletedAt);
 }
 
 export async function getSettlement(id) {
@@ -195,7 +307,8 @@ export async function getSettlement(id) {
 }
 
 export async function listSettlementsForPurchase(purchaseId) {
-  return dbGetAllByIndex('settlements', 'purchaseId', purchaseId);
+  const all = await dbGetAllByIndex('settlements', 'purchaseId', purchaseId);
+  return all.filter((s) => !s.deletedAt);
 }
 
 export async function createSettlement(data) {
@@ -209,6 +322,8 @@ export async function createSettlement(data) {
     purchaseId: data.purchaseId || null,
     note: data.note || '',
     source: data.source || null,
+    groupId: await getActiveGroupId(),
+    createdByPersonId: (await getLocalPersonId()) || null,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -222,7 +337,15 @@ export async function updateSettlement(id, data) {
   return dbPut('settlements', updated);
 }
 
+/**
+ * Igual criterio que deletePurchase: tombstone si pertenece a un grupo,
+ * borrado directo si es puramente local.
+ */
 export async function deleteSettlement(id) {
+  const existing = await dbGet('settlements', id);
+  if (existing && existing.groupId) {
+    return dbPut('settlements', { ...existing, deletedAt: nowIso(), updatedAt: nowIso() });
+  }
   return dbDelete('settlements', id);
 }
 
@@ -286,8 +409,17 @@ export async function importAllData(backup, { replace = false } = {}) {
   return { people: people.length, categories: categories.length, products: products.length, purchases: purchases.length, settlements: settlements.length };
 }
 
+/**
+ * "Borrar todos los datos" es un botón local por dispositivo: además de
+ * vaciar las entidades, desvincula este dispositivo del grupo (la membresía
+ * remota no se toca — solo el estado local de "a qué grupo pertenezco").
+ * Así el dispositivo vuelve a la pantalla de entrada en vez de quedar en un
+ * estado inconsistente (grupo activo sin ninguna persona/compra local).
+ */
 export async function wipeAllData() {
-  return dbClearAll(ALL_STORES.filter((s) => s !== 'meta'));
+  await dbClearAll(ALL_STORES.filter((s) => s !== 'meta'));
+  await clearActiveGroup();
+  await setLocalPersonId(null);
 }
 
 // ---------- Datos de demostración ----------

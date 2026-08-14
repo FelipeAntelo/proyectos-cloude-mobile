@@ -9,7 +9,17 @@ const DB_NAME = 'equilibra-db';
 // simplemente no lo tienen (equivale a `null`, "transferencia general"), así
 // que no hace falta reescribir datos existentes — solo agregar el índice
 // nuevo sobre el object store ya existente, preservando todo lo demás.
-const DB_VERSION = 2;
+//
+// v2 -> v3: soporte para "grupo compartido" (ver src/sync/). Cada entidad
+// sincronizable gana dos campos aditivos: `groupId` (a qué grupo remoto
+// pertenece; `null`/ausente = todavía no está vinculada a ningún grupo) y
+// `deletedAt` (tombstone: un registro "borrado" se marca así en vez de
+// eliminarse de verdad, para que la sincronización pueda propagar el borrado
+// sin que un dispositivo que todavía no vio el cambio lo "resucite"). Se
+// agrega también el store `outbox` (cola de cambios pendientes de subir) y
+// se reutiliza `meta` para guardar el estado de sync (grupo activo, cursor,
+// identidad local). Ningún dato existente se reescribe.
+const DB_VERSION = 3;
 
 /** @type {Promise<IDBDatabase>|null} */
 let dbPromise = null;
@@ -65,6 +75,27 @@ function openDatabase() {
 
       if (!db.objectStoreNames.contains('meta')) {
         db.createObjectStore('meta', { keyPath: 'key' });
+      }
+
+      if (event.oldVersion < 3) {
+        // Índice groupId sobre las entidades sincronizables, para poder
+        // filtrar/limpiar por grupo sin recorrer todo el store en JS.
+        ['people', 'categories', 'products', 'purchases', 'settlements'].forEach((name) => {
+          const store = tx.objectStore(name);
+          if (!store.indexNames.contains('groupId')) {
+            store.createIndex('groupId', 'groupId');
+          }
+        });
+
+        if (!db.objectStoreNames.contains('outbox')) {
+          // keyPath compuesto "entity:recordId": a lo sumo una operación
+          // pendiente por registro. Una escritura local nueva sobre un
+          // registro que ya tenía cambios sin sincronizar simplemente
+          // reemplaza esa entrada (ver src/sync/outbox.js) en vez de
+          // acumular una cola creciente de pasos intermedios.
+          const outbox = db.createObjectStore('outbox', { keyPath: 'key' });
+          outbox.createIndex('createdAt', 'createdAt');
+        }
       }
     };
 
@@ -163,4 +194,5 @@ export async function dbTransaction(storeNames, mode, fn) {
   return withTransaction(storeNames, mode, fn);
 }
 
-export const ALL_STORES = ['people', 'categories', 'products', 'purchases', 'settlements', 'meta'];
+export const ALL_STORES = ['people', 'categories', 'products', 'purchases', 'settlements', 'meta', 'outbox'];
+export const SYNCED_STORES = ['people', 'categories', 'products', 'purchases', 'settlements'];

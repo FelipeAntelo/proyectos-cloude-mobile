@@ -1,0 +1,15 @@
+{
+  "name": "Un ramo para vos",
+  "short_name": "Ramo",
+  "description": "Un pequeño ramo digital de tulipanes amarillos que guarda cuatro mensajitos.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf6ec",
+  "theme_color": "#faf6ec",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

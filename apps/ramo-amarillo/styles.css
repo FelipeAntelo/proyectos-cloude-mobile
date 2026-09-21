@@ -1,0 +1,389 @@
+/* ============================================================
+   Un ramo para vos — estilos
+   Paleta y tipografía centralizadas acá arriba para editar fácil.
+   ============================================================ */
+
+:root {
+  /* Paleta — crema / beige / amarillo suave / verde tenue */
+  --cream: #faf6ec;
+  --beige: #f1e6cf;
+  --warm-white: #fffdf8;
+  --yellow-pale: #f4e3ab;
+  --yellow-soft: #e8c468;
+  --yellow-deep: #cf9e37;
+  --green-soft: #9aab7d;
+  --green-deep: #71805a;
+  --ink: #40392c;
+  --ink-soft: #756b58;
+  --ink-faint: #a89c85;
+
+  --font-serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Times New Roman', serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  --ease-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+body {
+  position: relative;
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  background: var(--cream);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  min-height: 44px;
+  min-width: 44px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--yellow-deep);
+  outline-offset: 3px;
+}
+
+/* ---------- pétalos flotando de fondo ---------- */
+
+.petals-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.petal {
+  position: absolute;
+  bottom: -8%;
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.petal svg { display: block; width: 100%; height: 100%; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .petal { animation: drift linear infinite; }
+}
+
+@keyframes drift {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  8% { opacity: 0.55; }
+  92% { opacity: 0.45; }
+  100% { transform: translate(var(--drift-x, 20px), -115vh) rotate(var(--drift-r, 140deg)); opacity: 0; }
+}
+
+/* ---------- layout general de pantallas ---------- */
+
+.app {
+  position: relative;
+  min-height: 100dvh;
+  z-index: 1;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4rem;
+  padding: calc(env(safe-area-inset-top) + 2rem) 1.5rem calc(env(safe-area-inset-bottom) + 2rem);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.9s var(--ease-soft), transform 0.9s var(--ease-soft);
+  pointer-events: none;
+  overflow-y: auto;
+  z-index: 1;
+}
+
+.screen.is-active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen { transition-duration: 0.25s; }
+}
+
+/* ---------- pantalla 1: intro ---------- */
+
+.intro-deco {
+  width: 72px;
+  height: 72px;
+  color: var(--yellow-soft);
+  opacity: 0.85;
+}
+
+.intro-deco svg { width: 100%; height: 100%; }
+
+.intro-title {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(1.6rem, 6.5vw, 2.1rem);
+  line-height: 1.35;
+  color: var(--ink);
+  margin: 0;
+  max-width: 22rem;
+}
+
+.intro-sub {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  margin: 0;
+  max-width: 20rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.95rem 2.4rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: transform 0.35s var(--ease-soft), box-shadow 0.35s var(--ease-soft), opacity 0.35s var(--ease-soft);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--yellow-pale), var(--yellow-soft));
+  color: var(--ink);
+  box-shadow: 0 10px 24px -12px rgba(207, 158, 55, 0.55);
+  margin-top: 0.6rem;
+}
+
+.btn-primary:active { transform: scale(0.96); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid rgba(64, 57, 44, 0.22);
+  padding: 0.8rem 1.8rem;
+  font-size: 0.85rem;
+}
+
+.btn-ghost:active { transform: scale(0.96); background: rgba(64, 57, 44, 0.05); }
+
+/* ---------- pantalla 2: ramo ---------- */
+
+.screen--bouquet { justify-content: flex-start; padding-top: calc(env(safe-area-inset-top) + 3.2rem); gap: 0.9rem; }
+
+.bouquet-hint {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  color: var(--ink-faint);
+  margin: 0;
+  text-transform: uppercase;
+  transition: opacity 0.6s var(--ease-soft);
+}
+
+.bouquet-hint.is-hidden { opacity: 0; height: 0; overflow: hidden; }
+
+.bouquet-wrap {
+  position: relative;
+  width: min(78vw, 320px);
+  aspect-ratio: 300 / 420;
+  margin: 0 auto;
+}
+
+.bouquet-bg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+/* elementos del ilustración SVG de fondo */
+.bouquet-bg .wrap-paper { fill: var(--beige); }
+.bouquet-bg .wrap-fold { stroke: var(--ink-faint); stroke-width: 1; opacity: 0.4; fill: none; }
+.bouquet-bg .ribbon-band { stroke: var(--yellow-deep); stroke-width: 7; opacity: 0.45; fill: none; }
+.bouquet-bg .ribbon-bow { fill: var(--yellow-deep); opacity: 0.7; }
+.bouquet-bg .ribbon-knot { fill: var(--yellow-deep); opacity: 0.8; }
+.bouquet-bg .stem { fill: none; stroke: var(--green-deep); stroke-width: 3.5; stroke-linecap: round; }
+.bouquet-bg .leaf { fill: var(--green-soft); }
+.bouquet-bg .deco-tulip { fill: var(--yellow-pale); stroke: var(--yellow-deep); stroke-width: 0.6; opacity: 0.9; }
+.bouquet-bg .filler-dot circle { fill: var(--warm-white); opacity: 0.9; }
+
+.bouquet-entry { opacity: 0; transform: translateY(18px); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .screen--bouquet.is-active .bouquet-entry {
+    animation: bouquet-rise 1.2s var(--ease-soft) var(--entry-delay, 0s) forwards;
+  }
+  .screen--bouquet.is-active .sway {
+    animation: sway var(--sway-dur, 7s) ease-in-out var(--sway-delay, 0s) infinite alternate;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen--bouquet.is-active .bouquet-entry { opacity: 1; transform: none; }
+}
+
+@keyframes bouquet-rise {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sway {
+  from { transform: rotate(calc(var(--sway-deg, 1.4deg) * -1)); }
+  to { transform: rotate(var(--sway-deg, 1.4deg)); }
+}
+
+/* Cada tulipán interactivo se arma en 3 capas para que las animaciones no
+   se pisen entre sí: el <button> solo posiciona y da feedback al toque,
+   .tulip-entry hace la aparición progresiva, .tulip-inner hace el vaivén. */
+.tulip {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--size, 64px);
+  height: var(--size, 64px);
+  transform: translate(-50%, -50%);
+  transition: transform 0.5s var(--ease-soft), filter 0.5s var(--ease-soft);
+  filter: drop-shadow(0 0 0 rgba(232, 196, 104, 0));
+  padding: 0;
+}
+
+.tulip:active { transform: translate(-50%, -50%) scale(0.95); }
+
+.tulip.is-touched {
+  animation: tulip-touch 0.7s var(--ease-soft);
+}
+
+.tulip.is-discovered {
+  filter: drop-shadow(0 2px 10px rgba(232, 196, 104, 0.55));
+}
+
+.tulip-entry { display: block; width: 100%; height: 100%; }
+
+.tulip-inner { display: block; width: 100%; height: 100%; transform-origin: 50% 86%; }
+
+.tulip-inner svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+.tulip-mark {
+  position: absolute;
+  bottom: 6px;
+  right: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--yellow-deep);
+  opacity: 0;
+  transition: opacity 0.5s var(--ease-soft);
+}
+
+.tulip.is-discovered .tulip-mark { opacity: 0.85; }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes tulip-touch {
+    0% { transform: translate(-50%, -50%) scale(1); }
+    35% { transform: translate(-50%, -50%) scale(1.16) rotate(-3deg); }
+    65% { transform: translate(-50%, -50%) scale(1.08) rotate(2deg); }
+    100% { transform: translate(-50%, -50%) scale(1); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes tulip-touch {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.05); }
+  }
+}
+
+.progress-indicator {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+
+.message-panel {
+  width: min(88vw, 340px);
+  min-height: 3.4rem;
+  margin: 0 auto;
+  padding: 0.2rem 0.6rem;
+}
+
+.message-text {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 0;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.6s var(--ease-soft), transform 0.6s var(--ease-soft);
+}
+
+.message-text.is-visible { opacity: 1; transform: translateY(0); }
+
+/* ---------- pantalla 3: cierre ---------- */
+
+.final-deco { width: 56px; height: 56px; color: var(--yellow-soft); }
+.final-deco svg { width: 100%; height: 100%; }
+
+.final-title {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(1.5rem, 6vw, 1.95rem);
+  line-height: 1.4;
+  color: var(--ink);
+  margin: 0;
+  max-width: 21rem;
+}
+
+.final-sub {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+/* ---------- música ---------- */
+
+.music-toggle {
+  position: fixed;
+  right: calc(env(safe-area-inset-right) + 0.9rem);
+  bottom: calc(env(safe-area-inset-bottom) + 0.9rem);
+  z-index: 5;
+  padding: 0.55rem 0.95rem;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.75);
+  border: 1px solid rgba(64, 57, 44, 0.14);
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: opacity 0.4s var(--ease-soft), transform 0.3s var(--ease-soft);
+}
+
+.music-toggle:active { transform: scale(0.95); }
+
+/* ---------- utilidades ---------- */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

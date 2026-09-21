@@ -125,6 +125,12 @@ button:focus-visible {
   .screen { transition-duration: 0.25s; }
 }
 
+/* Transición más lenta y delicada hacia el cierre, activada solo un
+   instante (ver app.js) para dar tiempo a leer el 4º mensaje. */
+@media (prefers-reduced-motion: no-preference) {
+  .app.final-transition .screen { transition-duration: 1.3s; }
+}
+
 /* ---------- pantalla 1: intro ---------- */
 
 .intro-deco {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ramo-amarillo-v1';
+const CACHE_NAME = 'ramo-amarillo-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const APP_SHELL = [
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './assets/musica.mp3',
 ];
 
 self.addEventListener('install', (event) => {

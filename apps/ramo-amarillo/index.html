@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Un ramo para vos</title>
+  <meta name="description" content="Un pequeño ramo digital de tulipanes amarillos que guarda cuatro mensajitos." />
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#faf6ec" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Ramo" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- pétalos flotando muy lentamente, de fondo -->
+  <div class="petals-layer" aria-hidden="true">
+    <div class="petal" style="left:8%; width:14px; height:14px; --drift-x:26px; --drift-r:120deg; animation-duration:26s; animation-delay:-2s;">
+      <svg viewBox="0 0 20 20"><ellipse cx="10" cy="10" rx="6" ry="9" style="fill:var(--yellow-soft)" transform="rotate(20 10 10)"/></svg>
+    </div>
+    <div class="petal" style="left:22%; width:10px; height:10px; --drift-x:-18px; --drift-r:-100deg; animation-duration:22s; animation-delay:-9s;">
+      <svg viewBox="0 0 20 20"><ellipse cx="10" cy="10" rx="6" ry="9" style="fill:var(--warm-white)" transform="rotate(-10 10 10)"/></svg>
+    </div>
+    <div class="petal" style="left:48%; width:12px; height:12px; --drift-x:20px; --drift-r:90deg; animation-duration:30s; animation-delay:-14s;">
+      <svg viewBox="0 0 20 20"><ellipse cx="10" cy="10" rx="6" ry="9" style="fill:var(--yellow-pale)" transform="rotate(35 10 10)"/></svg>
+    </div>
+    <div class="petal" style="left:68%; width:11px; height:11px; --drift-x:-24px; --drift-r:-130deg; animation-duration:24s; animation-delay:-5s;">
+      <svg viewBox="0 0 20 20"><ellipse cx="10" cy="10" rx="6" ry="9" style="fill:var(--yellow-soft)" transform="rotate(-25 10 10)"/></svg>
+    </div>
+    <div class="petal" style="left:85%; width:9px; height:9px; --drift-x:16px; --drift-r:80deg; animation-duration:20s; animation-delay:-11s;">
+      <svg viewBox="0 0 20 20"><ellipse cx="10" cy="10" rx="6" ry="9" style="fill:var(--warm-white)" transform="rotate(15 10 10)"/></svg>
+    </div>
+  </div>
+
+  <main class="app">
+
+    <!-- Pantalla 1: introducción -->
+    <section class="screen screen--intro is-active" id="screen-intro" aria-hidden="false">
+      <div class="intro-deco" aria-hidden="true">
+        <svg viewBox="0 0 60 60" fill="none">
+          <path d="M30,54 C30,40 30,26 30,10" style="stroke:var(--green-deep)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M30,30 C22,26 18,18 22,10 C28,14 30,22 30,30 Z" style="fill:var(--yellow-soft)"/>
+          <path d="M30,26 C36,20 38,12 33,6 C28,11 28,19 30,26 Z" style="fill:var(--yellow-pale)"/>
+        </svg>
+      </div>
+      <h1 class="intro-title" id="intro-title"></h1>
+      <p class="intro-sub" id="intro-sub"></p>
+      <button class="btn btn-primary" id="btn-open" type="button"></button>
+    </section>
+
+    <!-- Pantalla 2: ramo interactivo -->
+    <section class="screen screen--bouquet" id="screen-bouquet" aria-hidden="true">
+      <p class="bouquet-hint" id="bouquet-hint"></p>
+
+      <div class="bouquet-wrap">
+        <svg class="bouquet-bg bouquet-entry" viewBox="0 0 300 420" aria-hidden="true" focusable="false" style="--entry-delay:0s;">
+          <!-- envoltorio de papel -->
+          <path class="wrap-paper" d="M68,328 L232,328 L152,412 Z" />
+          <path class="wrap-fold" d="M104,331 L143,402" />
+          <path class="wrap-fold" d="M150,328 L152,408" />
+          <path class="wrap-fold" d="M196,331 L159,402" />
+          <path class="ribbon-band" d="M90,349 L211,349" />
+          <path class="ribbon-bow" d="M150,349 L130,340 L130,358 Z" />
+          <path class="ribbon-bow" d="M150,349 L170,340 L170,358 Z" />
+          <circle class="ribbon-knot" cx="150" cy="349" r="4.5" />
+
+          <!-- tallos con vaivén y flores decorativas de relleno -->
+          <g class="sway" style="--sway-dur:8.2s; --sway-delay:0s; --sway-deg:1.1deg; transform-box:fill-box; transform-origin:50% 100%;">
+            <path class="stem" d="M150,330 Q108,272 105,212" />
+            <g class="deco-tulip" transform="translate(105,212) scale(0.55) translate(-22,-33)">
+              <path d="M22,33 C14,29 10,20 14,10 C19,15 22,24 22,33 Z" />
+              <path d="M22,33 C30,29 34,20 30,10 C25,15 22,24 22,33 Z" />
+              <path d="M22,33 C17,27 16,16 22,5 C28,16 27,27 22,33 Z" />
+            </g>
+          </g>
+          <g class="sway" style="--sway-dur:9s; --sway-delay:.5s; --sway-deg:1.3deg; transform-box:fill-box; transform-origin:50% 100%;">
+            <path class="stem" d="M150,330 Q192,272 195,217" />
+            <g class="deco-tulip" transform="translate(195,217) scale(0.55) translate(-22,-33)">
+              <path d="M22,33 C14,29 10,20 14,10 C19,15 22,24 22,33 Z" />
+              <path d="M22,33 C30,29 34,20 30,10 C25,15 22,24 22,33 Z" />
+              <path d="M22,33 C17,27 16,16 22,5 C28,16 27,27 22,33 Z" />
+            </g>
+          </g>
+          <g class="sway" style="--sway-dur:7.4s; --sway-delay:.25s; --sway-deg:1deg; transform-box:fill-box; transform-origin:50% 100%;">
+            <path class="stem" d="M150,330 Q150,250 150,157" />
+            <g class="deco-tulip" transform="translate(150,157) scale(0.45) translate(-22,-33)">
+              <path d="M22,33 C14,29 10,20 14,10 C19,15 22,24 22,33 Z" />
+              <path d="M22,33 C30,29 34,20 30,10 C25,15 22,24 22,33 Z" />
+              <path d="M22,33 C17,27 16,16 22,5 C28,16 27,27 22,33 Z" />
+            </g>
+          </g>
+
+          <!-- tallos de las 4 flores interactivas (la cabeza es el botón HTML de arriba) -->
+          <path class="stem" d="M150,330 Q102,252 85,180" />
+          <path class="stem" d="M150,330 Q120,202 128,110" />
+          <path class="stem" d="M150,330 Q180,202 172,105" />
+          <path class="stem" d="M150,330 Q198,252 215,175" />
+
+          <!-- hojas -->
+          <path class="leaf" d="M114,258 C92,244 86,214 97,194 C107,224 113,239 119,258 Z" />
+          <path class="leaf" d="M186,260 C208,246 214,216 203,196 C193,226 187,241 181,260 Z" />
+          <path class="leaf" d="M133,236 C118,212 121,187 137,170 C139,202 137,220 140,236 Z" />
+          <path class="leaf" d="M167,238 C182,214 179,189 163,172 C161,204 163,222 160,238 Z" />
+
+          <!-- florcitas blancas pequeñas, tipo paniculata -->
+          <g class="filler-dot">
+            <circle cx="68" cy="198" r="3" />
+            <circle cx="74" cy="190" r="2.1" />
+            <circle cx="64" cy="186" r="2.3" />
+            <circle cx="232" cy="203" r="3" />
+            <circle cx="225" cy="194" r="2.1" />
+            <circle cx="238" cy="190" r="2.3" />
+            <circle cx="150" cy="76" r="2.6" />
+            <circle cx="142" cy="85" r="2" />
+            <circle cx="159" cy="85" r="2" />
+            <circle cx="98" cy="138" r="2.2" />
+            <circle cx="106" cy="130" r="1.9" />
+            <circle cx="202" cy="143" r="2.2" />
+            <circle cx="194" cy="134" r="1.9" />
+          </g>
+        </svg>
+
+        <!-- flor 1 -->
+        <button class="tulip" type="button" data-flower="1"
+          style="--x:28.3%; --y:42.9%; --size:58px; --entry-delay:.25s;"
+          aria-label="Primera flor" aria-pressed="false">
+          <span class="tulip-entry bouquet-entry" style="--entry-delay:.25s;">
+            <span class="tulip-inner sway" style="--sway-dur:6.4s; --sway-delay:0s; --sway-deg:2deg;">
+              <svg viewBox="0 0 44 44" aria-hidden="true">
+                <defs>
+                  <linearGradient id="tulipGrad1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" style="stop-color:var(--yellow-pale)" />
+                    <stop offset="1" style="stop-color:var(--yellow-soft)" />
+                  </linearGradient>
+                </defs>
+                <path style="fill:var(--yellow-deep)" opacity="0.85" d="M22,33 C14,29 10,20 14,10 C19,15 22,24 22,33 Z" />
+                <path style="fill:var(--yellow-deep)" opacity="0.85" d="M22,33 C30,29 34,20 30,10 C25,15 22,24 22,33 Z" />
+                <path style="fill:url(#tulipGrad1)" d="M22,33 C17,27 16,16 22,5 C28,16 27,27 22,33 Z" />
+                <path style="stroke:var(--yellow-deep)" stroke-width="0.7" opacity="0.3" fill="none" d="M22,9 L22,29" />
+                <ellipse cx="19" cy="11" rx="2.2" ry="3.6" style="fill:var(--warm-white)" opacity="0.35" transform="rotate(-15 19 11)" />
+              </svg>
+            </span>
+          </span>
+          <span class="tulip-mark" aria-hidden="true"></span>
+        </button>
+
+        <!-- flor 2 -->
+        <button class="tulip" type="button" data-flower="2"
+          style="--x:42.7%; --y:25.7%; --size:68px; --entry-delay:.4s;"
+          aria-label="Segunda flor" aria-pressed="false">
+          <span class="tulip-entry bouquet-entry" style="--entry-delay:.4s;">
+            <span class="tulip-inner sway" style="--sway-dur:7.1s; --sway-delay:.2s; --sway-deg:1.8deg;">
+              <svg viewBox="0 0 44 44" aria-hidden="true">
+                <defs>
+                  <linearGradient id="tulipGrad2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" style="stop-color:var(--yellow-pale)" />
+                    <stop offset="1" style="stop-color:var(--yellow-soft)" />
+                  </linearGradient>
+                </defs>
+                <path style="fill:var(--yellow-deep)" opacity="0.85" d="M22,33 C14,29 10,20 14,10 C19,15 22,24 22,33 Z" />
+                <path style="fill:var(--yellow-deep)" opacity="0.85" d="M22,33 C30,29 34,20 30,10 C25,15 22,24 22,33 Z" />
+                <path style="fill:url(#tulipGrad2)" d="M22,33 C17,27 16,16 22,5 C28,16 27,27 22,33 Z" />
+                <path style="stroke:var(--yellow-deep)" stroke-width="0.7" opacity="0.3" fill="none" d="M22,9 L22,29" />
+                <ellipse cx="19" cy="11" rx="2.2" ry="3.6" style="fill:var(--warm-white)" opacity="0.35" transform="rotate(-15 19 11)" />
+              </svg>
+            </span>
+          </span>
+          <span class="tulip-mark" aria-hidden="true"></span>
+        </button>
+
+        <!-- flor 3 -->
+        <button class="tulip" type="button" data-flower="3"
+          style="--x:57.3%; --y:25%; --size:68px; --entry-delay:.55s;"
+          aria-label="Tercera flor" aria-pressed="false">
+          <span class="tulip-entry bouquet-entry" style="--entry-delay:.55s;">
+            <span class="tulip-inner sway" style="--sway-dur:6.8s; --sway-delay:.35s; --sway-deg:1.8deg;">
+              <svg viewBox="0 0 44 44" aria-hidden="true">
+                <defs>
+                  <linearGradient id="tulipGrad3" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" style="stop-color:var(--yellow-pale)" />
+                    <stop offset="1" style="stop-color:var(--yellow-soft)" />
+                  </linearGradient>
+                </defs>
+                <path style="fill:var(--yellow-deep)" opacity="0.85" d="M22,33 C14,29 10,20 14,10 C19,15 22,24 22,33 Z" />
+                <path style="fill:var(--yellow-deep)" opacity="0.85" d="M22,33 C30,29 34,20 30,10 C25,15 22,24 22,33 Z" />
+                <path style="fill:url(#tulipGrad3)" d="M22,33 C17,27 16,16 22,5 C28,16 27,27 22,33 Z" />
+                <path style="stroke:var(--yellow-deep)" stroke-width="0.7" opacity="0.3" fill="none" d="M22,9 L22,29" />
+                <ellipse cx="19" cy="11" rx="2.2" ry="3.6" style="fill:var(--warm-white)" opacity="0.35" transform="rotate(-15 19 11)" />
+              </svg>
+            </span>
+          </span>
+          <span class="tulip-mark" aria-hidden="true"></span>
+        </button>
+
+        <!-- flor 4 -->
+        <button class="tulip" type="button" data-flower="4"
+          style="--x:71.7%; --y:41.7%; --size:58px; --entry-delay:.7s;"
+          aria-label="Cuarta flor" aria-pressed="false">
+          <span class="tulip-entry bouquet-entry" style="--entry-delay:.7s;">
+            <span class="tulip-inner sway" style="--sway-dur:6.6s; --sway-delay:.15s; --sway-deg:2deg;">
+              <svg viewBox="0 0 44 44" aria-hidden="true">
+                <defs>
+                  <linearGradient id="tulipGrad4" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" style="stop-color:var(--yellow-pale)" />
+                    <stop offset="1" style="stop-color:var(--yellow-soft)" />
+                  </linearGradient>
+                </defs>
+                <path style="fill:var(--yellow-deep)" opacity="0.85" d="M22,33 C14,29 10,20 14,10 C19,15 22,24 22,33 Z" />
+                <path style="fill:var(--yellow-deep)" opacity="0.85" d="M22,33 C30,29 34,20 30,10 C25,15 22,24 22,33 Z" />
+                <path style="fill:url(#tulipGrad4)" d="M22,33 C17,27 16,16 22,5 C28,16 27,27 22,33 Z" />
+                <path style="stroke:var(--yellow-deep)" stroke-width="0.7" opacity="0.3" fill="none" d="M22,9 L22,29" />
+                <ellipse cx="19" cy="11" rx="2.2" ry="3.6" style="fill:var(--warm-white)" opacity="0.35" transform="rotate(-15 19 11)" />
+              </svg>
+            </span>
+          </span>
+          <span class="tulip-mark" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <p class="progress-indicator" aria-hidden="true"><span id="progress-count">0 de 4</span></p>
+
+      <div class="message-panel" aria-live="polite">
+        <p class="message-text" id="message-text"></p>
+      </div>
+    </section>
+
+    <!-- Pantalla 3: cierre -->
+    <section class="screen screen--final" id="screen-final" aria-hidden="true">
+      <div class="final-deco" aria-hidden="true">
+        <svg viewBox="0 0 60 60" fill="none">
+          <path d="M30,54 C30,40 30,26 30,10" style="stroke:var(--green-deep)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M30,30 C22,26 18,18 22,10 C28,14 30,22 30,30 Z" style="fill:var(--yellow-soft)"/>
+          <path d="M30,26 C36,20 38,12 33,6 C28,11 28,19 30,26 Z" style="fill:var(--yellow-pale)"/>
+        </svg>
+      </div>
+      <p class="final-title" id="final-title"></p>
+      <p class="final-sub" id="final-sub"></p>
+      <button class="btn btn-ghost" id="btn-replay" type="button"></button>
+    </section>
+
+  </main>
+
+  <button class="music-toggle" id="btn-music" type="button" aria-pressed="false">
+    <span id="music-label"></span>
+  </button>
+  <audio id="bg-audio" src="./assets/musica.mp3" loop preload="none"></audio>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(console.error);
+      });
+    }
+  </script>
+  <script src="app.js" defer></script>
+</body>
+</html>

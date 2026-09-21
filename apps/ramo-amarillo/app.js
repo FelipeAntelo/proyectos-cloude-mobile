@@ -8,13 +8,19 @@
 const CONFIG = {
   storagePrefix: 'pwa-lab:ramo-amarillo:',
   musicSrc: './assets/musica.mp3',
+  musicVolume: 0.35, // volumen de fondo, sugerido 30–40%
+  musicFadeMs: 1000, // fade-in suave solo al arrancar la música
+
+  // Cuánto queda visible el 4º mensaje antes de avanzar al cierre.
+  // La duración de esa transición en sí vive en styles.css (.final-transition).
+  finalMessageHoldMs: 5000,
 
   texts: {
     introTitle: 'Tengo un detallito para vos, mi amorcito.',
     introSub: 'Es algo sencillo, pero hecho con cariño para vos.',
     openButton: 'Abrilo',
     bouquetHint: 'Tocá las flores.',
-    finalTitle: 'Solo quería recordarte que te quiero mucho, mi amorcito.',
+    finalTitle: 'Solo quería recordarte que te amo mucho, mi amorcito.',
     finalSub: 'Con cariño, para vos ♡',
     replayButton: 'Ver otra vez',
     musicOn: 'Poner musiquita',
@@ -58,6 +64,7 @@ const state = {
 /* ============================================================
    Navegación entre pantallas
    ============================================================ */
+const appEl = document.querySelector('.app');
 const screens = {
   intro: document.getElementById('screen-intro'),
   bouquet: document.getElementById('screen-bouquet'),
@@ -71,6 +78,29 @@ function showScreen(name) {
     el.classList.toggle('is-active', active);
     el.setAttribute('aria-hidden', active ? 'false' : 'true');
   }
+}
+
+/* ============================================================
+   Transición (lenta y deliberada) hacia la pantalla de cierre.
+   Se agenda con un timer rastreado para poder cancelarlo sin
+   dejar un setTimeout viejo que dispare después de un reinicio.
+   ============================================================ */
+let finalTransitionTimer = null;
+
+function clearFinalTransitionTimer() {
+  if (finalTransitionTimer !== null) {
+    window.clearTimeout(finalTransitionTimer);
+    finalTransitionTimer = null;
+  }
+}
+
+function scheduleFinalTransition(delayMs) {
+  clearFinalTransitionTimer();
+  finalTransitionTimer = window.setTimeout(() => {
+    finalTransitionTimer = null;
+    appEl.classList.add('final-transition');
+    goToFinal();
+  }, delayMs);
 }
 
 /* ============================================================
@@ -129,7 +159,7 @@ function handleTulipTap(btn) {
   btn.classList.add('is-touched');
 
   if (!wasDiscovered && state.discovered.size === totalFlowers) {
-    window.setTimeout(goToFinal, 1900);
+    scheduleFinalTransition(CONFIG.finalMessageHoldMs);
   }
 }
 
@@ -145,7 +175,7 @@ function goToBouquet() {
   applyDiscoveredState();
   if (state.discovered.size === totalFlowers) {
     if (bouquetHint) bouquetHint.classList.add('is-hidden');
-    window.setTimeout(goToFinal, 1400);
+    scheduleFinalTransition(1400);
   }
 }
 
@@ -154,6 +184,8 @@ function goToFinal() {
 }
 
 function resetExperience() {
+  clearFinalTransitionTimer();
+  appEl.classList.remove('final-transition');
   state.discovered = new Set();
   writeDiscovered(state.discovered);
   applyDiscoveredState();
@@ -172,19 +204,42 @@ document.getElementById('btn-replay').addEventListener('click', resetExperience)
 const audio = document.getElementById('bg-audio');
 const musicBtn = document.getElementById('btn-music');
 const musicLabel = document.getElementById('music-label');
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 let musicPlaying = false;
+let fadeFrame = null;
+
+audio.volume = CONFIG.musicVolume;
 
 function setMusicLabel() {
   musicLabel.textContent = musicPlaying ? CONFIG.texts.musicOff : CONFIG.texts.musicOn;
   musicBtn.setAttribute('aria-pressed', musicPlaying ? 'true' : 'false');
 }
 
+function fadeAudioTo(target, durationMs) {
+  if (fadeFrame !== null) window.cancelAnimationFrame(fadeFrame);
+  if (prefersReducedMotion || durationMs <= 0) {
+    audio.volume = target;
+    return;
+  }
+  const start = performance.now();
+  const from = audio.volume;
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / durationMs);
+    audio.volume = from + (target - from) * t;
+    fadeFrame = t < 1 ? window.requestAnimationFrame(step) : null;
+  };
+  fadeFrame = window.requestAnimationFrame(step);
+}
+
 musicBtn.addEventListener('click', () => {
   if (!musicPlaying) {
+    // arranca en silencio y sube suavemente al volumen de fondo (nunca autoplay: solo tras este toque)
+    audio.volume = 0;
     audio.play()
       .then(() => {
         musicPlaying = true;
         setMusicLabel();
+        fadeAudioTo(CONFIG.musicVolume, CONFIG.musicFadeMs);
       })
       .catch(() => {
         // no hay archivo de música todavía o el navegador bloqueó la reproducción

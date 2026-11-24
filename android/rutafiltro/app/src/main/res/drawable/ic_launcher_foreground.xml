@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Embudo (filtro) con ruta -->
+    <path android:fillColor="#B5E550" android:pathData="M30,32 L78,32 L60,54 L60,74 L48,80 L48,54 Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#E2B33C" android:strokeWidth="3"
+        android:pathData="M28,84 C40,78 44,88 56,84 C66,80 70,86 80,82" />
+</vector>

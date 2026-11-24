@@ -17,6 +17,12 @@ Para crear una PWA nueva, usar el skill `pwa-builder`
 - [`apps/carta-interactiva`](./apps/carta-interactiva) — carta que se voltea,
   con botón, animación discreta y contador configurable (PWA de demostración).
 
+## Proyectos Android
+
+- [`android/rutafiltro`](./android/rutafiltro) — RutaFiltro 0.8: asistente Android
+  (Kotlin + Compose) para evaluar solicitudes de viaje según tarifas, tramos y zonas,
+  con control flotante. No es una PWA: no aplican las reglas de `apps/`. Ver su README.
+
 ## Estructura
 
 ```
@@ -25,4 +31,5 @@ apps/<slug>/          PWA autocontenida (index.html, styles.css, app.js,
 .claude/skills/        Skills de Claude Code (pwa-builder)
 CLAUDE.md               Reglas permanentes del laboratorio
 index.html               Landing con el listado de apps
+android/<proyecto>/      Proyectos Android nativos (Gradle), fuera de GitHub Pages
 ```

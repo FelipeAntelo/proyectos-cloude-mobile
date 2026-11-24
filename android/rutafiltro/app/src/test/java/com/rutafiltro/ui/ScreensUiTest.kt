@@ -57,9 +57,18 @@ class ScreensUiTest {
     @get:Rule val rule = createComposeRule()
 
     /** Mapa falso: un botón que "toca" el siguiente punto de una lista. */
-    private fun fakeMap(points: List<GeoPoint>): MapSlot = { _, onClick, _ ->
+    private fun fakeMap(points: List<GeoPoint>): MapSlot = { model, onClick, _ ->
         var i by remember { mutableStateOf(0) }
-        Button(onClick = { val p = points[i % points.size]; i++; onClick(p) { q -> if (q == p) 0f else 9999f } }, modifier = Modifier.testTag("fake-map")) { Text("mapa") }
+        androidx.compose.foundation.layout.Column {
+            Button(onClick = { val p = points[i % points.size]; i++; onClick(p) { q -> if (q == p) 0f else 9999f } }, modifier = Modifier.testTag("fake-map")) { Text("mapa") }
+            // Simula un trazo con el dedo (solo existe si el mapa está en modo trazo libre)
+            model.onFreehand?.let { f -> Button(onClick = { f(circle()) }, modifier = Modifier.testTag("fake-trace")) { Text("trazo") } }
+        }
+    }
+
+    private fun circle() = (0..200).map { k ->
+        val a = 2 * Math.PI * k / 200
+        GeoPoint(SantaCruz.CENTER.lat + 0.01 * kotlin.math.sin(a), SantaCruz.CENTER.lng + 0.01 * kotlin.math.cos(a))
     }
 
     @Test fun fareTesterReflectsSettings() {
@@ -131,6 +140,7 @@ class ScreensUiTest {
         } } }
         rule.onNodeWithTag("zone-new-GOLD").performClick()
         rule.onNodeWithTag("zone-save").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithTag("draw-mode-false").performScrollTo().performClick()
         repeat(4) { rule.onNodeWithTag("fake-map").performScrollTo().performClick() }
         rule.onNodeWithTag("zone-vertex-count").performScrollTo().assertTextContains("4 vértices", substring = true)
         rule.onNodeWithTag("zone-name").performScrollTo().performTextReplacement("Equipetrol")
@@ -139,6 +149,28 @@ class ScreensUiTest {
         assertEquals("Equipetrol", saved[0].name)
         assertEquals(com.rutafiltro.domain.ZoneType.GOLD, saved[0].type)
         assertEquals(4, saved[0].vertices.size)
+    }
+
+    @Test fun zonesFreehandDrawing() {
+        val saved = mutableListOf<Zone>()
+        rule.setContent { RutaFiltroTheme { Box(Modifier.verticalScroll(rememberScrollState())) {
+            ZonesScreen(emptyList(), ZoneConfig(), {}, { z, cb -> saved += z; cb(PolygonValidator.validate(z.vertices)) }, {}, {}, fakeMap(listOf(SantaCruz.CENTER)))
+        } } }
+        assertTrue(rule.onAllNodesWithTag("fake-trace").fetchSemanticsNodes().isEmpty()) // sin editar, no hay trazo
+        rule.onNodeWithTag("zone-new-RED").performClick()
+        rule.onNodeWithTag("fake-trace").performScrollTo().performClick()
+        rule.onNodeWithTag("zone-save").performScrollTo().assertIsEnabled().performClick()
+        assertEquals(1, saved.size)
+        assertTrue(saved[0].vertices.size >= 8)
+    }
+
+    @Test fun tierFixedToggleChangesUnit() {
+        var cfg by mutableStateOf(TierConfig())
+        rule.setContent { RutaFiltroTheme { Box(Modifier.verticalScroll(rememberScrollState())) { TiersScreen(cfg) { cfg = it } } } }
+        rule.onNodeWithTag("tier-fixed-0-true").performScrollTo().performClick()
+        assertTrue(cfg.tiers[0].fixed)
+        rule.onNodeWithTag("tier-price-0").performScrollTo().performTextReplacement("12")
+        assertEquals(12.0, cfg.tiers[0].pricePerKm, 1e-9)
     }
 
     @Test fun settingsShowsHonestIntegrationStatus() {

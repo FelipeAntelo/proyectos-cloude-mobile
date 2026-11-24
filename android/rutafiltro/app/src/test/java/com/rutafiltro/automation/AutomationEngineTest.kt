@@ -269,6 +269,42 @@ class AutomationEngineTest {
         assertTrue(st.processed + st.droppedOverload <= 300)
     }
 
+    @Test fun retriesPerTripWithIncrementAndLimits() = runTest {
+        val s = settings().let { it.copy(automation = it.automation.copy(maxAttemptsPerRequest = 3, retryIncrementBs = 5.0)) }
+        val h = Harness(this, s)
+        h.start()
+        h.emit(req("t", price = 30.0))
+        repeat(4) { h.source.declineOffer("t"); runCurrent() }
+        val prices = (h.sink as SimulatedOfferSink).sent.map { it.priceBs }
+        assertEquals(listOf(30.0, 35.0, 40.0), prices) // 3 intentos como máximo
+        assertEquals(3, h.engine.status.value.sessionOfferAttempts)
+        assertTrue(h.saved[1].reason.startsWith("Reintento 2/3"))
+    }
+
+    @Test fun retryNeverExceedsMaxAutoOffer() = runTest {
+        val s = settings().let { it.copy(automation = it.automation.copy(maxAttemptsPerRequest = 3, retryIncrementBs = 20.0)) }
+        val h = Harness(this, s)
+        h.start()
+        h.emit(req("t", price = 50.0))
+        h.source.declineOffer("t"); runCurrent()
+        assertEquals(1, (h.sink as SimulatedOfferSink).sent.size) // 70 > máximo 60
+        assertEquals(Outcome.PREPARED, h.saved.last().outcome)
+        assertTrue(h.saved.last().reason.contains("supera"))
+    }
+
+    @Test fun declineIgnoredWithSingleAttemptOrUnknownOrPaused() = runTest {
+        val h = Harness(this, settings())
+        h.start()
+        h.emit(req("t", price = 30.0))
+        h.source.declineOffer("t"); runCurrent()
+        h.source.declineOffer("desconocida"); runCurrent()
+        assertEquals(1, (h.sink as SimulatedOfferSink).sent.size)
+        val h2 = Harness(this, settings().let { it.copy(automation = it.automation.copy(maxAttemptsPerRequest = 3)) })
+        h2.start(); h2.emit(req("u", price = 30.0)); h2.engine.pause()
+        h2.source.declineOffer("u"); runCurrent()
+        assertEquals(1, (h2.sink as SimulatedOfferSink).sent.size)
+    }
+
     @Test fun deactivateIgnoresFurtherRequests() = runTest {
         val h = Harness(this, settings())
         h.start()

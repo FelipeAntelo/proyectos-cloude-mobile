@@ -12,6 +12,8 @@ enum class RuleId(val label: String) {
     RATING("Calificación del pasajero baja"),
     EXTRA_STOPS("Demasiadas paradas adicionales"),
     DESCRIPTION("Solicitud con descripción"),
+    DESCRIPTION_KEYWORD("Comentario con palabra rechazada"),
+    PASSENGER_TRIPS("Pasajero con pocos viajes"),
     RED_ZONE_PICKUP("Recogida en zona roja"),
     RED_ZONE_DROPOFF("Destino en zona roja"),
     GOLD_PICKUP_OUTSIDE("Recogida fuera de zona dorada"),
@@ -53,7 +55,7 @@ data class Evaluation(
     val fare: FareBreakdown?,
     val offer: OfferPlan?,
     /** Prioridad por zonas verdes/doradas (mayor = mejor). */
-    val zonePriority: Int,
+    val priority: Int,
     /** Bs/km con pasajero (precio del pasajero / km de trayecto). */
     val bsPerKmTrip: Double?,
     /** Bs/km total incluida la recogida. */
@@ -127,6 +129,14 @@ object RuleEngine {
                 else -> checks += RuleCheck(RuleId.RATING, true, "Calificación ${"%.2f".format(r)}")
             }
         }
+        if (f.minPassengerTrips > 0) {
+            val n = req.passengerTrips
+            when {
+                n == null -> if (f.unknownTrips == UnknownPolicy.REJECT) return reject(RuleId.PASSENGER_TRIPS, "Viajes del pasajero desconocidos")
+                n < f.minPassengerTrips -> return reject(RuleId.PASSENGER_TRIPS, "$n viajes < mínimo ${f.minPassengerTrips}")
+                else -> checks += RuleCheck(RuleId.PASSENGER_TRIPS, true, "$n viajes")
+            }
+        }
         if (f.skipExtraStops) {
             val st = req.extraStops
             when {
@@ -141,6 +151,19 @@ object RuleEngine {
                 d == null -> if (f.unknownDescription == UnknownPolicy.REJECT) return reject(RuleId.DESCRIPTION, "Descripción desconocida")
                 d.isNotBlank() -> return reject(RuleId.DESCRIPTION, "Tiene descripción: \"${d.take(40)}\"")
                 else -> checks += RuleCheck(RuleId.DESCRIPTION, true, "Sin descripción")
+            }
+        }
+
+        val keywords = f.rejectKeywords.map(::normalize).filter { it.isNotBlank() }
+        if (keywords.isNotEmpty()) {
+            val d = req.description
+            if (d != null) {
+                val text = normalize(d)
+                val hit = keywords.firstOrNull { text.contains(it) }
+                if (hit != null) return reject(RuleId.DESCRIPTION_KEYWORD, "Comentario contiene \"$hit\"")
+                checks += RuleCheck(RuleId.DESCRIPTION_KEYWORD, true, "Sin palabras rechazadas")
+            } else if (f.unknownDescription == UnknownPolicy.REJECT) {
+                return reject(RuleId.DESCRIPTION_KEYWORD, "Comentario desconocido")
             }
         }
 
@@ -183,6 +206,7 @@ object RuleEngine {
         var priority = (ZoneMatcher.containing(greens, ZoneType.GREEN, req.pickup).maxOfOrNull { it.priority } ?: 0) +
             (ZoneMatcher.containing(greens, ZoneType.GREEN, req.dropoff).maxOfOrNull { it.priority } ?: 0)
         if (zc.goldMode != GoldMode.OFF) priority += (goldPickup.maxOfOrNull { it.priority } ?: 0)
+        if (f.preferredPickupMin > 0 && eta != null && eta <= f.preferredPickupMin) priority += FilterConfig.PREFERRED_ETA_BONUS
 
         // 4) Tarifa
         val fare = when (val fr = FareCalculator.compute(req, s.fare, s.tiers)) {
@@ -224,6 +248,10 @@ object RuleEngine {
                 "Bs ${bs(price)} < exigida Bs ${bs(fare.required)}", checks.toList(), fare, null, priority, bsTrip, bsTotal)
         }
     }
+
+    /** Minúsculas y sin tildes, para comparar palabras clave. */
+    fun normalize(s: String): String =
+        java.text.Normalizer.normalize(s.lowercase().trim(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
 
     private fun km(v: Double) = "%.1f km".format(v)
     private fun min(v: Double) = "%.0f min".format(v)

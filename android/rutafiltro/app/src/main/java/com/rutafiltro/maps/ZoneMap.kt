@@ -5,7 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
@@ -45,6 +47,8 @@ data class MapModel(
     val draftType: ZoneType = ZoneType.RED,
     val selectedVertex: Int? = null,
     val demand: List<DemandCell> = emptyList(),
+    /** Si no es null, el mapa está en modo "trazo libre": arrastrar dibuja y al soltar entrega el trazo. */
+    val onFreehand: ((List<GeoPoint>) -> Unit)? = null,
 )
 
 fun zoneColorHex(t: ZoneType) = when (t) { ZoneType.RED -> "#E5484D"; ZoneType.GREEN -> "#3DBE7A"; ZoneType.GOLD -> "#E2B33C" }
@@ -101,8 +105,31 @@ fun ZoneMap(model: MapModel, onClick: (GeoPoint, (GeoPoint) -> Float) -> Unit, m
             mapView.onPause(); mapView.onStop(); mapView.onDestroy()
         }
     }
-    AndroidView(factory = { mapView }, modifier = modifier, update = { (holder[1] as? Style)?.let { render(it, model) } })
+    androidx.compose.foundation.layout.Box(modifier) {
+        AndroidView(factory = { mapView }, modifier = Modifier.matchParentSize(), update = { (holder[1] as? Style)?.let { render(it, model) } })
+        val onFreehand = model.onFreehand
+        if (onFreehand != null) {
+            // Capa transparente: mientras está activa el mapa no se mueve; el dedo dibuja.
+            val trace = remember { mutableListOf<GeoPoint>() }
+            androidx.compose.foundation.layout.Spacer(Modifier.matchParentSize().pointerInput(onFreehand) {
+                detectDragGestures(
+                    onDragStart = { o -> trace.clear(); toGeo(holder[0] as? MapLibreMap, o.x, o.y)?.let(trace::add) },
+                    onDragEnd = { if (trace.size >= 3) onFreehand(trace.toList()); trace.clear() },
+                    onDragCancel = { trace.clear() },
+                ) { change, _ ->
+                    change.consume()
+                    toGeo(holder[0] as? MapLibreMap, change.position.x, change.position.y)?.let { p ->
+                        trace += p
+                        (holder[1] as? Style)?.let { st -> render(st, model.copy(draft = trace.toList(), selectedVertex = null)) }
+                    }
+                }
+            })
+        }
+    }
 }
+
+private fun toGeo(map: MapLibreMap?, x: Float, y: Float): GeoPoint? =
+    map?.projection?.fromScreenLocation(PointF(x, y))?.let { GeoPoint(it.latitude, it.longitude) }
 
 private fun installLayers(style: Style) {
     style.addSource(GeoJsonSource("rf-zones"))

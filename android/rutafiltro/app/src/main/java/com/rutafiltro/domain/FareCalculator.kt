@@ -103,14 +103,19 @@ object FareCalculator {
                     val lowerOk = km > t.fromKm + 1e-9 || (t.fromKm <= 1e-9 && km >= 0)
                     upperOk && lowerOk
                 } ?: return null
-                km * t.pricePerKm
+                if (t.fixed) t.pricePerKm else km * t.pricePerKm
             }
             TierMode.PROGRESSIVE -> {
                 val maxCovered = sorted.last().toKm
                 if (maxCovered != null && km > maxCovered + 1e-9) return null
                 sorted.sumOf { t ->
                     val upper = minOf(km, t.toKm ?: Double.MAX_VALUE)
-                    (upper - t.fromKm).coerceAtLeast(0.0) * t.pricePerKm
+                    val portion = (upper - t.fromKm).coerceAtLeast(0.0)
+                    when {
+                        !t.fixed -> portion * t.pricePerKm
+                        portion > 1e-9 || t.fromKm <= 1e-9 -> t.pricePerKm
+                        else -> 0.0
+                    }
                 }
             }
         }

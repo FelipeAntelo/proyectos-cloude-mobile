@@ -112,6 +112,7 @@ fun RutaFiltroRoot(
                     onSourceMode = { m -> vm.setSourceMode(m) { ok -> if (!ok) callbacks.toast("Desactive el motor para cambiar de origen") } },
                     onToggleOverlay = callbacks.onToggleOverlay,
                     onSimulateOne = { vm.simulateOne() }, onSimulateBurst = { vm.simulateBurst(10) }, onSimulateTrip = { vm.simulateTrip(it) },
+                    onSimulateDecline = { vm.simulateDecline() },
                     onManualSubmit = { vm.submitManual(it) },
                     onClearPrepared = vm::clearPrepared,
                 )

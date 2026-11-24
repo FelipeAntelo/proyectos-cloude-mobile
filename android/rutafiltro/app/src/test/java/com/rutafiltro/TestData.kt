@@ -19,7 +19,9 @@ object TestData {
         pickup: GeoPoint? = GeoPoint(-17.78, -63.18),
         dropoff: GeoPoint? = GeoPoint(-17.76, -63.16),
         simulated: Boolean = true,
-    ) = RideRequest(id, "test", simulated, 0L, price, pickupKm, etaMin, tripKm, tripMin, rating, stops, description, pickup, dropoff)
+    ) = RideRequest(id, "test", simulated, 0L, passengerPriceBs = price, pickupDistanceKm = pickupKm, pickupEtaMin = etaMin,
+        tripDistanceKm = tripKm, tripDurationMin = tripMin, passengerRating = rating, extraStops = stops, description = description,
+        pickup = pickup, dropoff = dropoff)
 
     /** Cuadrado alrededor de (lat,lng) con medio lado d (grados). */
     fun square(id: String, type: ZoneType, lat: Double, lng: Double, d: Double = 0.01, priority: Int = 3,

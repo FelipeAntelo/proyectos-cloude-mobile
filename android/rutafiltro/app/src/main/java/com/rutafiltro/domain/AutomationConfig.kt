@@ -25,6 +25,15 @@ data class AutomationConfig(
     /** Autorefresco: intervalo en segundos (se respeta el mínimo que declare el origen). */
     val autoRefreshEnabled: Boolean = true,
     val autoRefreshSeconds: Int = 8,
+    /**
+     * Intentos máximos por viaje: si el origen informa que el pasajero no aceptó una oferta
+     * enviada, el motor puede volver a ofertar a la misma solicitud hasta este total.
+     */
+    val maxAttemptsPerRequest: Int = 1,
+    /** Incremento en Bs para cada reintento sobre la misma solicitud (respeta el importe máximo). */
+    val retryIncrementBs: Double = 0.0,
+    /** Aviso con sonido y vibración cuando hay una oferta preparada o enviada. */
+    val soundAlert: Boolean = true,
     /** Ventana de deduplicación: misma solicitud vista en este lapso no se reprocesa. */
     val dedupWindowSeconds: Int = 600,
 )

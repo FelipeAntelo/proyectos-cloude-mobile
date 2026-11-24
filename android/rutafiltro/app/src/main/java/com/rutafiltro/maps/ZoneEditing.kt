@@ -40,6 +40,12 @@ data class ZoneDraft(
         return withVertices(vertices + p, null)
     }
 
+    /** Reemplaza el contorno por un trazo libre ya simplificado (se puede deshacer). */
+    fun fromFreehand(trace: List<GeoPoint>): ZoneDraft {
+        val v = Simplify.freehandToPolygon(trace)
+        return if (v.size < 3) this else withVertices(v, null)
+    }
+
     fun removeSelected(): ZoneDraft {
         val sel = selected ?: return this
         if (sel !in vertices.indices) return copy(selected = null)

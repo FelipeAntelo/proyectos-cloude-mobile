@@ -62,9 +62,15 @@ class AutomationEngine(
 
     private var jobs = mutableListOf<Job>()
     private var settleJob: Job? = null
-    private var queue = Channel<com.rutafiltro.domain.RideRequest>(QUEUE_CAPACITY)
+    private var queue = Channel<Work>(QUEUE_CAPACITY)
     private val seen = LinkedHashMap<String, Long>()
-    private val sentIds = HashSet<String>()
+    /** Solicitudes con oferta enviada: intentos hechos y último precio (para reintentos). */
+    private val sent = HashMap<String, SentInfo>()
+    private data class SentInfo(val request: com.rutafiltro.domain.RideRequest, val attempts: Int, val lastPriceBs: Double, val at: Long)
+    private sealed interface Work {
+        data class New(val request: com.rutafiltro.domain.RideRequest) : Work
+        data class Retry(val requestId: String) : Work
+    }
     private val dismissTimes = ArrayDeque<Long>()
     private var consecutiveFailures = 0
     private var pausedByTrip = false
@@ -85,7 +91,7 @@ class AutomationEngine(
         if (st != EngineState.DISABLED && st != EngineState.ERROR) return
         stopJobs()
         queue = Channel(QUEUE_CAPACITY)
-        seen.clear(); sentIds.clear(); dismissTimes.clear()
+        seen.clear(); sent.clear(); dismissTimes.clear()
         consecutiveFailures = 0; pausedByTrip = false
         _status.value = EngineStatus(
             sourceName = source.displayName,
@@ -97,7 +103,12 @@ class AutomationEngine(
         transition(EngineState.OBSERVING, "Observando solicitudes de ${source.displayName}")
         val src = source
         jobs += scope.launch { src.events.collect { onEvent(it) } }
-        jobs += scope.launch { for (first in queue) processBatch(drain(first)) }
+        jobs += scope.launch {
+            for (first in queue) when (first) {
+                is Work.Retry -> processRetry(first.requestId)
+                is Work.New -> processBatch(drain(first.request))
+            }
+        }
         jobs += scope.launch { refreshLoop(src) }
     }
 
@@ -147,7 +158,7 @@ class AutomationEngine(
         when (e) {
             is SourceEvent.Request -> {
                 if (!_status.value.state.isRunning) return
-                if (queue.trySend(e.request).isFailure) {
+                if (queue.trySend(Work.New(e.request)).isFailure) {
                     _status.update { it.copy(droppedOverload = it.droppedOverload + 1, lastError = "Cola llena: solicitud ${e.request.id} no procesada") }
                 }
             }
@@ -160,6 +171,9 @@ class AutomationEngine(
                     pausedByTrip = false
                     transition(EngineState.OBSERVING, "Viaje terminado: observando")
                 }
+            }
+            is SourceEvent.OfferDeclined -> {
+                if (_status.value.state.isRunning) queue.trySend(Work.Retry(e.requestId))
             }
             is SourceEvent.Error -> {
                 _status.update { it.copy(lastError = e.message) }
@@ -175,10 +189,68 @@ class AutomationEngine(
         transition(EngineState.ERROR, message)
     }
 
+    /** Junta las solicitudes nuevas que ya esperan en la cola; un reintento corta la ráfaga y se reencola. */
     private fun drain(first: com.rutafiltro.domain.RideRequest): List<com.rutafiltro.domain.RideRequest> {
         val batch = mutableListOf(first)
-        while (true) batch += queue.tryReceive().getOrNull() ?: break
+        val retries = mutableListOf<Work.Retry>()
+        while (true) when (val w = queue.tryReceive().getOrNull() ?: break) {
+            is Work.New -> batch += w.request
+            is Work.Retry -> retries += w
+        }
+        retries.forEach { queue.trySend(it) }
         return batch
+    }
+
+    /**
+     * Reintento sobre una solicitud ya ofertada cuyo pasajero no aceptó.
+     * Precio = último precio + incremento (redondeado), nunca por encima del importe máximo.
+     */
+    private suspend fun processRetry(id: String) {
+        try {
+            if (!_status.value.state.isRunning) return
+            val info = sent[id] ?: return
+            val snap = rules.value
+            val auto = snap.settings.automation
+            if (info.attempts >= auto.maxAttemptsPerRequest) return
+            val ev = RuleEngine.evaluate(info.request, snap.settings, snap.zones)
+            val offer = ev.offer ?: return
+            val price = com.rutafiltro.domain.FareCalculator.roundUp(
+                maxOf(offer.priceBs, info.lastPriceBs + auto.retryIncrementBs), snap.settings.fare.acceptDecimals)
+            val attemptNo = info.attempts + 1
+            val label = "Reintento $attemptNo/${auto.maxAttemptsPerRequest}"
+            val st = _status.value
+            val maxAuto = snap.settings.fare.maxAutoOfferBs
+            val block = when {
+                st.maxOffersPerSession > 0 && st.sessionOfferAttempts >= st.maxOffersPerSession -> "límite de ofertas por sesión"
+                maxAuto <= 0 || price > maxAuto + 1e-9 -> "Bs ${RuleEngine.bs(price)} supera el máximo automático"
+                else -> null
+            }
+            transition(EngineState.ANALYZING, label)
+            val base = record(ev, snap, Outcome.PREPARED, "", false).copy(offerBs = price)
+            val rec = if (block != null) base.copy(outcome = Outcome.PREPARED, reason = "$label no enviado: $block")
+            else {
+                sent[id] = info.copy(attempts = attemptNo, lastPriceBs = price, at = clock())
+                _status.update { it.copy(sessionOfferAttempts = it.sessionOfferAttempts + 1) }
+                when (val res = sink.send(OutgoingOffer(id, price, true, info.request.simulated))) {
+                    is SendResult.Sent -> { consecutiveFailures = 0; base.copy(outcome = if (res.simulated) Outcome.SENT_SIMULATED else Outcome.SENT, reason = "$label · Bs ${RuleEngine.bs(price)}") }
+                    is SendResult.Failed -> { consecutiveFailures++; base.copy(outcome = Outcome.SEND_FAILED, reason = "$label fallido: ${res.message}") }
+                }
+            }
+            _status.update { it.copy(processed = it.processed + 1) }
+            emit(rec)
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) { fail("$MAX_CONSECUTIVE_FAILURES envíos fallidos seguidos"); return }
+            val s2 = _status.value
+            if (s2.maxOffersPerSession > 0 && s2.sessionOfferAttempts >= s2.maxOffersPerSession) {
+                transition(EngineState.PAUSED, "Límite de ${s2.maxOffersPerSession} ofertas por sesión alcanzado"); return
+            }
+            val fs = if (rec.outcome == Outcome.SENT || rec.outcome == Outcome.SENT_SIMULATED) EngineState.OFFER_SENT else EngineState.OBSERVING
+            transition(fs, rec.reason)
+            scheduleSettle(fs)
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            fail("Error interno: ${t.message ?: t::class.simpleName}")
+        }
     }
 
     private suspend fun processBatch(batch: List<com.rutafiltro.domain.RideRequest>) {
@@ -188,6 +260,7 @@ class AutomationEngine(
             val now = clock()
             val windowMs = snap.settings.automation.dedupWindowSeconds * 1000L
             seen.entries.removeAll { now - it.value > windowMs }
+            sent.entries.removeAll { now - it.value.at > windowMs }
             val fresh = batch.filter { r ->
                 if (seen.containsKey(r.id)) { _status.update { it.copy(duplicatesIgnored = it.duplicatesIgnored + 1) }; false }
                 else { seen[r.id] = now; true }
@@ -199,7 +272,7 @@ class AutomationEngine(
             // Simultáneas: primero las ofertables, por prioridad de zona y luego Bs/km total.
             val ordered = evals.sortedWith(
                 compareByDescending<Evaluation> { it.offer != null }
-                    .thenByDescending { it.zonePriority }
+                    .thenByDescending { it.priority }
                     .thenByDescending { it.bsPerKmTotal ?: 0.0 }
             )
             var finalState = EngineState.OBSERVING
@@ -250,17 +323,22 @@ class AutomationEngine(
         }
     }
 
-    private suspend fun handle(ev: Evaluation, snap: RulesSnapshot): ProcessedRecord {
-        val auto = snap.settings.automation
+    private fun record(ev: Evaluation, snap: RulesSnapshot, outcome: Outcome, reason: String, dismissed: Boolean): ProcessedRecord {
         val req = ev.request
-        fun record(outcome: Outcome, reason: String = ev.reason, dismissed: Boolean = false) = ProcessedRecord(
+        return ProcessedRecord(
             requestId = req.id, atMillis = clock(), sourceId = req.sourceId, simulated = req.simulated,
-            profileName = snap.profileName, decision = ev.decision, rule = ev.rule, reason = reason, outcome = outcome,
+            profileName = snap.profileName, decision = ev.decision, rule = ev.rule, reason = reason.ifEmpty { ev.reason }, outcome = outcome,
             offerBs = ev.offer?.priceBs, passengerBs = req.passengerPriceBs, requiredBs = ev.fare?.required,
             totalKm = ev.fare?.totalKm, tripKm = req.tripDistanceKm, bsPerKmTrip = ev.bsPerKmTrip, bsPerKmTotal = ev.bsPerKmTotal,
             pickupLat = req.pickup?.lat, pickupLng = req.pickup?.lng, dropoffLat = req.dropoff?.lat, dropoffLng = req.dropoff?.lng,
-            dismissed = dismissed, zonePriority = ev.zonePriority,
+            dismissed = dismissed, priority = ev.priority,
         )
+    }
+
+    private suspend fun handle(ev: Evaluation, snap: RulesSnapshot): ProcessedRecord {
+        val auto = snap.settings.automation
+        val req = ev.request
+        fun record(outcome: Outcome, reason: String = ev.reason, dismissed: Boolean = false) = record(ev, snap, outcome, reason, dismissed)
         val rec: ProcessedRecord = when (ev.decision) {
             Decision.REJECT -> record(Outcome.REJECTED, dismissed = maybeDismiss(req.id, auto.clearDiscarded, auto.aggressiveMaxDismissPerMinute))
             Decision.INSUFFICIENT_DATA ->
@@ -288,7 +366,7 @@ class AutomationEngine(
             !caps.canSendAutomatically -> "Este origen no permite envío automático: ingrese la oferta en inDrive"
             ev.request.simulated == caps.isReal -> "Origen y destino incompatibles (simulado vs. real): no se envía"
             !offer.autoSendAllowed -> offer.autoBlockReason ?: "Envío automático no permitido"
-            ev.request.id in sentIds -> "Ya se envió una oferta para esta solicitud"
+            ev.request.id in sent -> "Ya se envió una oferta para esta solicitud"
             else -> null
         }
         if (blockReason != null) {
@@ -296,7 +374,7 @@ class AutomationEngine(
             _status.update { it.copy(prepared = r) }
             return r
         }
-        sentIds += ev.request.id
+        sent[ev.request.id] = SentInfo(ev.request, 1, offer.priceBs, clock())
         _status.update { it.copy(sessionOfferAttempts = it.sessionOfferAttempts + 1) }
         return when (val res = sink.send(OutgoingOffer(ev.request.id, offer.priceBs, offer.isCounterOffer, ev.request.simulated))) {
             is SendResult.Sent -> {

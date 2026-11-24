@@ -26,6 +26,8 @@ data class RideRequest(
     val tripDurationMin: Double? = null,
     /** Calificación del pasajero (0–5). */
     val passengerRating: Double? = null,
+    /** Viajes realizados por el pasajero (si el origen lo muestra). */
+    val passengerTrips: Int? = null,
     /** Paradas adicionales (sin contar origen ni destino). */
     val extraStops: Int? = null,
     /** Texto/comentario del pasajero; null = desconocido, "" = sin descripción. */

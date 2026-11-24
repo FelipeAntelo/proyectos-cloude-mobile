@@ -19,7 +19,7 @@ object TierValidator {
         val issues = mutableListOf<TierIssue>()
         tiers.forEachIndexed { i, t ->
             if (!(t.pricePerKm > 0) || t.pricePerKm.isInfinite()) {
-                issues += TierIssue(i, TierIssueCode.INVALID_PRICE, "Tramo ${i + 1}: el precio por km debe ser mayor que 0")
+                issues += TierIssue(i, TierIssueCode.INVALID_PRICE, "Tramo ${i + 1}: el precio debe ser mayor que 0")
             }
             if (t.fromKm.isNaN() || t.fromKm < 0 || (t.toKm != null && (t.toKm.isNaN() || t.toKm <= t.fromKm + EPS))) {
                 issues += TierIssue(i, TierIssueCode.INVALID_RANGE, "Tramo ${i + 1}: el límite superior debe ser mayor que el inferior")

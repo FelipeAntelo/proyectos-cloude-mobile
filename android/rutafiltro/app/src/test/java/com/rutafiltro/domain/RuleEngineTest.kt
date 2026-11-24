@@ -128,8 +128,8 @@ class RuleEngineTest {
     @Test fun greenPriority() {
         val g1 = square("G1", ZoneType.GREEN, -17.78, -63.18, priority = 4)
         val g2 = square("G2", ZoneType.GREEN, -17.76, -63.16, priority = 2)
-        assertEquals(6, eval(req(), zones = listOf(g1, g2)).zonePriority)
-        assertEquals(0, eval(req()).zonePriority)
+        assertEquals(6, eval(req(), zones = listOf(g1, g2)).priority)
+        assertEquals(0, eval(req()).priority)
     }
 
     @Test fun invalidPolygonZoneIsIgnored() {

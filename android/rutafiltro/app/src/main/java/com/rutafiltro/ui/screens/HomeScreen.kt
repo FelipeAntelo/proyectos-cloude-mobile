@@ -112,6 +112,7 @@ fun HomeScreen(
     onSimulateOne: () -> Unit, onSimulateBurst: () -> Unit, onSimulateTrip: (Boolean) -> Unit,
     onManualSubmit: (RideRequest) -> Unit,
     onClearPrepared: () -> Unit,
+    onSimulateDecline: () -> Unit = {},
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (!status.sourceIsReal && status.state != EngineState.DISABLED || sourceMode == SourceMode.SIMULATOR) SimBanner()
@@ -167,6 +168,7 @@ fun HomeScreen(
                     OutlinedButton(onClick = { onSimulateTrip(true) }, modifier = Modifier.weight(1f).heightIn(min = 44.dp)) { Text("Iniciar viaje") }
                     OutlinedButton(onClick = { onSimulateTrip(false) }, modifier = Modifier.weight(1f).heightIn(min = 44.dp)) { Text("Terminar viaje") }
                 }
+                OutlinedButton(onClick = onSimulateDecline, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)) { Text("Pasajero rechazó la última oferta") }
             } else {
                 ManualEntryForm(onManualSubmit)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

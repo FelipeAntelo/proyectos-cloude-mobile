@@ -74,9 +74,16 @@ fun FaresScreen(settings: ProfileSettings, zones: List<Zone>, onUpdate: ((Profil
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DecimalField("Trayecto máx.", fl.maxTripKm, { v -> onUpdate { it.copy(filters = it.filters.copy(maxTripKm = v)) } }, Modifier.weight(1f), "km", max = 500.0)
-                DecimalField("Calificación mín.", fl.minPassengerRating, { v -> onUpdate { it.copy(filters = it.filters.copy(minPassengerRating = v)) } }, Modifier.weight(1f), "★", max = 5.0)
+                DecimalField("Llegada preferida", fl.preferredPickupMin, { v -> onUpdate { it.copy(filters = it.filters.copy(preferredPickupMin = v)) } }, Modifier.weight(1f), "min", max = 120.0, tag = "pref-eta")
             }
-            Text("0 = sin límite.", style = MaterialTheme.typography.bodySmall, color = RfColors.TextDim)
+            Text("0 = sin límite. La llegada preferida no descarta: da prioridad a los viajes más cercanos.", style = MaterialTheme.typography.bodySmall, color = RfColors.TextDim)
+        }
+        SectionCard("Calidad del cliente") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DecimalField("Calificación mín.", fl.minPassengerRating, { v -> onUpdate { it.copy(filters = it.filters.copy(minPassengerRating = v)) } }, Modifier.weight(1f), "★", max = 5.0)
+                DecimalField("Viajes mínimos", fl.minPassengerTrips.toDouble(), { v -> onUpdate { it.copy(filters = it.filters.copy(minPassengerTrips = v.toInt())) } }, Modifier.weight(1f), max = 10_000.0, integer = true, tag = "min-trips")
+            }
+            Text("0 = sin filtro.", style = MaterialTheme.typography.bodySmall, color = RfColors.TextDim)
         }
         FareTester(settings, zones)
     }
@@ -101,8 +108,8 @@ fun FareTester(settings: ProfileSettings, zones: List<Zone>) {
             OptionalDecimalField("Duración", dur, { dur = it }, Modifier.weight(1f), "min")
         }
         val e = RuleEngine.evaluate(
-            RideRequest("prueba", "prueba", true, 0, parseDecimal(price), parseDecimal(pickup), parseDecimal(eta),
-                parseDecimal(trip), parseDecimal(dur), null, null, null, null, null),
+            RideRequest("prueba", "prueba", true, 0, passengerPriceBs = parseDecimal(price), pickupDistanceKm = parseDecimal(pickup),
+                pickupEtaMin = parseDecimal(eta), tripDistanceKm = parseDecimal(trip), tripDurationMin = parseDecimal(dur)),
             settings, zones,
         )
         val color = when (e.decision) { Decision.ACCEPT -> RfColors.Green; Decision.COUNTER_OFFER -> RfColors.Gold; else -> RfColors.Red }

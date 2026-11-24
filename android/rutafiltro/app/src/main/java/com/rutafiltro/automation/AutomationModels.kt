@@ -59,7 +59,7 @@ data class ProcessedRecord(
     val dropoffLat: Double?,
     val dropoffLng: Double?,
     val dismissed: Boolean = false,
-    val zonePriority: Int = 0,
+    val priority: Int = 0,
 )
 
 data class EngineStatus(

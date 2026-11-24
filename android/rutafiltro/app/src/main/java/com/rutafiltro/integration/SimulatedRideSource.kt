@@ -43,6 +43,7 @@ class SimulatedRideSource(
     suspend fun burst(n: Int) = repeat(n) { _events.emit(SourceEvent.Request(next())); kotlinx.coroutines.yield() }
     suspend fun setTripActive(active: Boolean) = _events.emit(SourceEvent.TripActive(active))
     suspend fun raiseError(message: String, critical: Boolean) = _events.emit(SourceEvent.Error(message, critical))
+    suspend fun declineOffer(requestId: String) = _events.emit(SourceEvent.OfferDeclined(requestId))
 
     fun next(): RideRequest {
         counter++
@@ -65,8 +66,9 @@ class SimulatedRideSource(
             tripDistanceKm = if (incomplete) null else tripKm,
             tripDurationMin = (tripKm / speedKmh * 60).roundToInt().toDouble().coerceAtLeast(2.0),
             passengerRating = if (random.nextInt(100) < 10) null else ((random.nextDouble(3.8, 5.0) * 100).roundToInt() / 100.0),
+            passengerTrips = if (random.nextInt(100) < 10) null else random.nextInt(0, 400),
             extraStops = listOf(0, 0, 0, 0, 0, 0, 1, 1, 2, 3).random(random),
-            description = if (random.nextInt(100) < 15) listOf("Llevo maleta", "Con mascota", "Esperar 5 min", "Somos 4").random(random) else "",
+            description = if (random.nextInt(100) < 15) listOf("Llevo maleta", "Con mascota", "Esperar 5 min", "Somos 4", "Sin propina", "Muchas paradas").random(random) else "",
             pickup = pickup,
             dropoff = dropoff,
         )

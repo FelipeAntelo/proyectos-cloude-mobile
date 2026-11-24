@@ -1,4 +1,4 @@
-# RutaFiltro 0.8 — asistente Android para conductores de inDrive
+# RutaFiltro 0.9 — asistente Android para conductores de inDrive
 
 Asistente que evalúa solicitudes de viaje según los criterios de rentabilidad del
 conductor (tarifa mínima, Bs/km, tramos, zonas, filtros) y prepara la oferta
@@ -27,7 +27,7 @@ Requisitos: JDK 17 o 21, Android SDK con `platforms;android-35` y `build-tools;3
 cd android/rutafiltro
 echo "sdk.dir=$ANDROID_HOME" > local.properties
 ./gradlew :app:assembleDebug          # APK: app/build/outputs/apk/debug/app-debug.apk
-./gradlew :app:testDebugUnitTest      # 107 pruebas (JVM + Robolectric)
+./gradlew :app:testDebugUnitTest      # 122 pruebas (JVM + Robolectric)
 ./gradlew :app:lintDebug
 ```
 
@@ -57,6 +57,18 @@ El paquete debug es `com.rutafiltro.debug` y convive con una futura versión rel
 | Perfiles | Ciudad, Nocturno, Cortos, Largos, Personalizado; renombrar, duplicar (con zonas), restablecer, eliminar |
 | Historial | Registro con regla determinante y Bs/km; mapa de demanda local |
 | Configuración | Permisos, estado verificado de integraciones, privacidad, licencias |
+
+## Novedades 0.9 (funciones observadas en el video de SpartanBot)
+
+- **Tramos fijos**: cada tramo puede ser "precio fijo" (total del rango, p. ej. 0–3 km = Bs 12) o "por km"; se combinan.
+- **Rechazar comentarios** por palabras clave (sin distinguir mayúsculas ni tildes).
+- **Calidad del cliente**: viajes mínimos del pasajero.
+- **Llegada preferida**: da prioridad (+2) sin descartar.
+- **Intentos por viaje** con incremento en Bs cuando el pasajero no acepta (tope: importe máximo).
+- **Audio del viaje**: tono + vibración al preparar/enviar una oferta.
+- **Zonas con trazo libre**: se dibuja con el dedo y se simplifica a un polígono editable.
+
+Análisis del video: [docs/ANALISIS-SPARTANBOT.md](docs/ANALISIS-SPARTANBOT.md).
 
 ## Reglas de cálculo (definidas, no supuestas)
 
@@ -90,7 +102,7 @@ app/src/main/java/com/rutafiltro/
 ├── data/         Room (perfiles, zonas, historial) + DataStore (preferencias)
 ├── overlay/      OverlayService (foreground) + burbuja + panel
 └── ui/           Compose: tema, componentes, 8 pantallas, MainViewModel
-app/src/test/     107 pruebas (ver docs/INFORME.md)
+app/src/test/     122 pruebas (ver docs/INFORME.md)
 ```
 
 Un adaptador de integración futuro sólo implementa `RideSource` y `OfferSink`;

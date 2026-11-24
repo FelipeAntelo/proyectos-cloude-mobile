@@ -3,17 +3,21 @@ package com.rutafiltro.domain
 import kotlinx.serialization.Serializable
 
 /**
- * Tramo de distancia: (fromKm, toKm] con precio por km. toKm == null => tramo infinito.
+ * Tramo de distancia: (fromKm, toKm]. toKm == null => tramo infinito.
  * El primer tramo empieza en 0 e incluye el 0: [0, toKm].
+ *
+ * [fixed] = false: [pricePerKm] es Bs por km ("tramo dinámico").
+ * [fixed] = true:  [pricePerKm] es un precio TOTAL en Bs para ese rango ("tramo fijo").
  */
 @Serializable
-data class Tier(val fromKm: Double, val toKm: Double?, val pricePerKm: Double)
+data class Tier(val fromKm: Double, val toKm: Double?, val pricePerKm: Double, val fixed: Boolean = false)
 
 /**
  * - [FULL_BAND]: toda la distancia se cobra al precio del tramo en que cae la distancia total.
- *   Ej. 8 km con tramo 6–10 a 3 Bs/km => 24 Bs.
+ *   Ej. 8 km con tramo 6–10 a 3 Bs/km => 24 Bs. Si ese tramo es fijo, la tarifa es su precio fijo.
  * - [PROGRESSIVE]: cada porción se cobra a su tramo (como impuestos escalonados).
- *   Ej. 8 km => 3·4 + 3·3,5 + 2·3 = 28,5 Bs.
+ *   Ej. 8 km => 3·4 + 3·3,5 + 2·3 = 28,5 Bs. Un tramo fijo suma su precio completo en cuanto
+ *   la distancia entra en él (el primer tramo siempre se cobra).
  */
 @Serializable
 enum class TierMode { FULL_BAND, PROGRESSIVE }

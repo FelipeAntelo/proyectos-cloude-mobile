@@ -64,7 +64,12 @@ class AppContainer(context: Context, val db: AppDatabase = AppDatabase.build(con
         RulesSnapshot(p?.id ?: -1, p?.name ?: "—", p?.settings ?: ProfileSettings(), z)
     }.stateIn(appScope, SharingStarted.Eagerly, RulesSnapshot(-1, "—", ProfileSettings(), emptyList()))
 
-    val engine = AutomationEngine(appScope, rules, simulator, simulatorSink, recorder = { history.add(it) })
+    private val alerter by lazy { com.rutafiltro.automation.Alerter(context) }
+
+    val engine = AutomationEngine(appScope, rules, simulator, simulatorSink, recorder = { r ->
+        history.add(r)
+        if (com.rutafiltro.automation.AlertPolicy.shouldAlert(r, rules.value.settings.automation.soundAlert)) alerter.alert()
+    })
 
     init {
         appScope.launch {

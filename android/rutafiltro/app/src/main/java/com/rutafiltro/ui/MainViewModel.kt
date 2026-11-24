@@ -72,6 +72,10 @@ class MainViewModel(val c: AppContainer) : ViewModel() {
     fun simulateOne() = viewModelScope.launch { c.simulator.burst(1) }
     fun simulateBurst(n: Int) = viewModelScope.launch { c.simulator.burst(n) }
     fun simulateTrip(active: Boolean) = viewModelScope.launch { c.simulator.setTripActive(active); c.manualSource.setTripActive(active) }
+    /** Simulador: el pasajero no aceptó la última oferta simulada (dispara un reintento si está permitido). */
+    fun simulateDecline() = viewModelScope.launch {
+        recent.value.firstOrNull { it.outcome == com.rutafiltro.automation.Outcome.SENT_SIMULATED }?.let { c.simulator.declineOffer(it.requestId) }
+    }
     fun submitManual(r: RideRequest) = viewModelScope.launch { c.manualSource.submit(r) }
 
     fun setSourceMode(m: SourceMode, onResult: (Boolean) -> Unit) = viewModelScope.launch { onResult(c.setSourceMode(m)) }

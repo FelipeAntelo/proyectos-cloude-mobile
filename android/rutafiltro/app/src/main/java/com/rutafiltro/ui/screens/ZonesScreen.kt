@@ -66,11 +66,13 @@ fun ZonesScreen(
 ) {
     var draft by remember { mutableStateOf<ZoneDraft?>(null) }
     var saveError by remember { mutableStateOf<String?>(null) }
+    var freehand by remember { mutableStateOf(true) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val d = draft
         Box(Modifier.fillMaxWidth().height(340.dp).clip(RoundedCornerShape(14.dp)).background(RfColors.SurfaceHigh)) {
             map(
-                MapModel(zones = zones.filter { it.id != d?.id }, draft = d?.vertices ?: emptyList(), draftType = d?.type ?: ZoneType.RED, selectedVertex = d?.selected),
+                MapModel(zones = zones.filter { it.id != d?.id }, draft = d?.vertices ?: emptyList(), draftType = d?.type ?: ZoneType.RED, selectedVertex = d?.selected,
+                    onFreehand = if (d != null && freehand) { trace -> draft = draft?.fromFreehand(trace) } else null),
                 { p, dist -> draft = draft?.onTap(p, dist) },
                 Modifier.fillMaxWidth().height(340.dp),
             )
@@ -85,9 +87,13 @@ fun ZonesScreen(
                     }
                 }
             }
-            Text("Toque el mapa para dibujar. Toque un vértice para seleccionarlo y luego otro punto para moverlo.",
+            Text("Elija el tipo de zona y dibuje con el dedo sobre el mapa. Luego puede ajustar vértices en modo \"Por puntos\".",
                 style = MaterialTheme.typography.bodySmall, color = RfColors.TextDim)
         } else {
+            ChoiceRow(listOf(true, false), freehand, { if (it) "Trazo libre" else "Por puntos" }, { freehand = it }, tagPrefix = "draw-mode")
+            Text(if (freehand) "Arrastre el dedo para rodear la zona; al soltar se cierra el polígono. El mapa no se mueve en este modo."
+                else "Toque para agregar vértices. Toque un vértice para seleccionarlo y luego otro punto para moverlo.",
+                style = MaterialTheme.typography.bodySmall, color = RfColors.TextDim)
             ZoneDraftEditor(d, saveError, onChange = { draft = it }, onCancel = { draft = null; saveError = null }, onSave = {
                 onSave(d.toZone()) { issues ->
                     if (issues.isEmpty()) { draft = null; saveError = null } else saveError = issues.joinToString(" · ") { it.message }

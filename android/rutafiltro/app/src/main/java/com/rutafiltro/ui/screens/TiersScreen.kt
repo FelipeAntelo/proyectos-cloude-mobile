@@ -44,6 +44,9 @@ object TierEditing {
         return c.copy(tiers = t)
     }
 
+    /** Cambia un tramo entre "fijo" (precio total del rango) y "por km". */
+    fun setFixed(c: TierConfig, i: Int, fixed: Boolean) = c.copy(tiers = c.tiers.toMutableList().also { it[i] = it[i].copy(fixed = fixed) })
+
     fun setPrice(c: TierConfig, i: Int, price: Double) = c.copy(tiers = c.tiers.toMutableList().also { it[i] = it[i].copy(pricePerKm = price) })
 
     /** Agrega un tramo al final: cierra el último (si era abierto) en from+5 km. */
@@ -86,6 +89,8 @@ fun TiersScreen(config: TierConfig, onChange: (TierConfig) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionCard("Tramos de distancia") {
             SwitchRow("Usar tramos", c.enabled, { onChange(c.copy(enabled = it)) }, "La tarifa por tramos es uno de los mínimos del cálculo")
+            Text("Cada tramo puede ser de precio fijo (total del rango, p. ej. 0–3 km = Bs 12) o por km. Se pueden combinar.",
+                style = MaterialTheme.typography.bodySmall, color = RfColors.TextDim)
             Text("Cálculo", style = MaterialTheme.typography.labelLarge)
             ChoiceRow(TierMode.entries, c.mode, { if (it == TierMode.FULL_BAND) "Banda completa" else "Progresivo" }, { onChange(c.copy(mode = it)) }, tagPrefix = "tiermode")
             Text(
@@ -102,11 +107,13 @@ fun TiersScreen(config: TierConfig, onChange: (TierConfig) -> Unit) {
                     Text("${fmtNum(t.fromKm)} –", modifier = Modifier.size(width = 52.dp, height = 24.dp))
                     if (t.toKm == null) Text("∞ km", modifier = Modifier.weight(1f))
                     else DecimalField("Hasta", t.toKm, { onChange(TierEditing.setUpper(c, i, it)) }, Modifier.weight(1f), "km", max = 1000.0, tag = "tier-to-$i")
-                    DecimalField("Precio", t.pricePerKm, { onChange(TierEditing.setPrice(c, i, it)) }, Modifier.weight(1f), "Bs/km", max = 100.0, tag = "tier-price-$i")
+                    DecimalField(if (t.fixed) "Total" else "Precio", t.pricePerKm, { onChange(TierEditing.setPrice(c, i, it)) }, Modifier.weight(1f),
+                        if (t.fixed) "Bs" else "Bs/km", max = if (t.fixed) 2000.0 else 100.0, tag = "tier-price-$i")
                     IconButton(onClick = { onChange(TierEditing.remove(c, i)) }, modifier = Modifier.size(44.dp).testTag("tier-del-$i")) {
                         Icon(Icons.Default.Delete, "Eliminar tramo", tint = RfColors.Red)
                     }
                 }
+                ChoiceRow(listOf(false, true), t.fixed, { if (it) "Precio fijo" else "Por km" }, { onChange(TierEditing.setFixed(c, i, it)) }, tagPrefix = "tier-fixed-$i")
             }
             OutlinedButton(onClick = { onChange(TierEditing.add(c)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("tier-add")) { Text("Agregar tramo") }
             if (issues.isEmpty()) Text("Tramos válidos: cobertura continua sin solapes.", color = RfColors.Green, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("tier-ok"))

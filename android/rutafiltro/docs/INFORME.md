@@ -1,4 +1,10 @@
-# Informe de trabajo — RutaFiltro 0.8.0 (24-nov-2026)
+# Informe de trabajo — RutaFiltro 0.9.0 (24-nov-2026)
+
+> 0.9: funciones observadas en el video de SpartanBot (ver ANALISIS-SPARTANBOT.md):
+> tramos fijos, palabras a rechazar, viajes mínimos, llegada preferida, intentos por viaje
+> con incremento, audio del viaje y zonas con trazo libre. Pruebas: **122/122 OK**
+> (nueva clase `domain.SpartanFeaturesTest` (10), 3 pruebas de reintentos en el motor y
+> 2 de UI: trazo libre y tramo fijo).
 
 ## 1. Auditoría inicial
 
@@ -28,6 +34,12 @@ Definida aquí, no copiada de SpartanBot (no se pudo observar).
 | Rechazo agresivo | Las solicitudes con datos insuficientes se **descartan** (en vez de quedar "Datos insuficientes" para revisión) y se ocultan si el origen lo permite. Límite: N descartes visuales por minuto (configurable, 30 por defecto). Nunca afecta a solicitudes válidas. |
 | Limpiar viajes descartados | Llama a `dismiss()` del origen sólo si lo soporta (simulador sí, manual no). Comparte el límite por minuto. |
 | Aceptar decimales | Apagado: la tarifa exigida se redondea **hacia arriba** a Bs entero. Encendido: a múltiplos de 0,10 Bs. El precio del pasajero no se altera. |
+| Tramo fijo | El precio del tramo es el total del rango. Banda completa: si la distancia cae en un tramo fijo, la tarifa por tramos es ese total. Progresivo: un tramo fijo suma su total en cuanto la distancia entra en él. |
+| Intentos por viaje | Solo si el origen informa que el pasajero no aceptó (`OfferDeclined`). Precio del reintento = último precio + incremento, redondeado, nunca sobre el importe máximo; cuenta para el límite por sesión. |
+| Palabras a rechazar | Se rechaza si el comentario contiene alguna (minúsculas, sin tildes). Comentario desconocido: según la política de "Descripción". |
+| Llegada preferida | Llegada ≤ preferida suma +2 de prioridad; nunca descarta. |
+| Audio del viaje | Tono corto + vibración en ofertas preparadas o enviadas. |
+| Trazo libre | El trazo se simplifica (Douglas-Peucker, 30 m, máx. 60 vértices) y queda como polígono editable; se puede deshacer. |
 | Tramos infinitos | Encendido: el último tramo es abierto ("10 km o más"). Apagado: el último tramo tiene tope y una distancia mayor se **descarta** con la regla "Distancia fuera de los tramos". |
 | Banda completa / progresivo | Banda: toda la distancia al precio del tramo donde cae el total. Progresivo: cada porción a su tramo. |
 | Zona roja | Bloquea recogida, destino o ambos. |

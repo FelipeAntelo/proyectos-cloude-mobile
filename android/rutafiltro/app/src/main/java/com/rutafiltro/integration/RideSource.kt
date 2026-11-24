@@ -20,6 +20,8 @@ sealed interface SourceEvent {
     /** El conductor tiene un viaje en curso: el motor debe detenerse. */
     data class TripActive(val active: Boolean) : SourceEvent
     data class Error(val message: String, val critical: Boolean) : SourceEvent
+    /** El pasajero no aceptó la oferta enviada para [requestId] (permite reintentar). */
+    data class OfferDeclined(val requestId: String) : SourceEvent
 }
 
 /**

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { bestBuySearchUrl, parseBestBuy } from "../src/worker/adapters/bestbuy";
 import { ebaySearchUrl, parseEbay } from "../src/worker/adapters/ebay";
-import { fetchWithRetry, parseRetryAfter, schedulerBackoffMs, SourceError } from "../src/worker/lib/http";
+import { fetchWithRetry, parseRetryAfter, redact, schedulerBackoffMs, SourceError } from "../src/worker/lib/http";
 import { BESTBUY_FIXTURE, EBAY_FIXTURE, PIXEL } from "./fixtures";
 
 describe("Best Buy adapter", () => {
@@ -64,10 +64,18 @@ describe("fetchWithRetry", () => {
     expect(attempts).toBe(3);
   });
 
-  it("no reintenta 4xx y marca 401/403 como error de configuración", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 403 }));
-    await expect(fetchWithRetry("https://x.test", {}, { sleepFn: noSleep })).rejects.toMatchObject({ status: 403, fatal: true });
+  it("no reintenta 4xx; 401 es error de configuración, 403 no (Best Buy lo usa para exceso de cuota)", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 401 }));
+    await expect(fetchWithRetry("https://x.test", {}, { sleepFn: noSleep })).rejects.toMatchObject({ status: 401, fatal: true });
     expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockResolvedValue(new Response("", { status: 403 }));
+    await expect(fetchWithRetry("https://x.test", {}, { sleepFn: noSleep })).rejects.toMatchObject({ status: 403, fatal: false });
+  });
+
+  it("redacta credenciales en mensajes", () => {
+    expect(redact("GET https://serpapi.com/search.json?q=x&api_key=SECRET123 failed")).not.toContain("SECRET123");
+    expect(redact("apiKey=abc&x=1")).toBe("apiKey=***&x=1");
+    expect(redact("Authorization: Bearer abc.def")).toBe("Authorization: Bearer ***");
   });
 
   it("respeta Retry-After largo devolviendo el control al scheduler", async () => {

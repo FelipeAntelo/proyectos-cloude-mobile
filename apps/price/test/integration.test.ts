@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { SourceAdapter } from "../src/worker/adapters/types";
 import type { Observation } from "../src/worker/domain/types";
 import { SourceError } from "../src/worker/lib/http";
-import { effectiveIntervalS, runMonitor } from "../src/worker/monitor";
+import { acquireLock, runMonitor } from "../src/worker/monitor";
 
 const PID = "pixel-11-pro-xl-256-obsidian-unlocked";
 const T0 = Date.UTC(2026, 10, 25, 12, 0, 0);
@@ -20,7 +20,9 @@ beforeEach(async () => {
     env.DB.prepare("DELETE FROM checks"),
     env.DB.prepare("DELETE FROM rate_limits"),
     env.DB.prepare("DELETE FROM financing"),
-    env.DB.prepare("UPDATE sources SET consecutive_failures = 0, backoff_until = NULL, next_check_at = 0, calls_today = 0, budget_day = NULL, last_success_at = NULL, last_error = NULL"),
+    env.DB.prepare("DELETE FROM quota_usage"),
+    env.DB.prepare("DELETE FROM kv_internal WHERE key LIKE 'lock:%' OR key LIKE 'quota_sync:%' OR key LIKE 'monitor:%'"),
+    env.DB.prepare("UPDATE sources SET consecutive_failures = 0, backoff_until = NULL, next_check_at = 0, last_success_at = NULL, last_attempt_at = NULL, last_error = NULL, suspended_reason = NULL"),
   ]);
 });
 
@@ -72,8 +74,10 @@ describe("monitor programado", () => {
     expect(offer).toMatchObject({ price_cents: 129900, match_status: "match" });
     const pts = await env.DB.prepare("SELECT COUNT(*) n FROM price_points").first<{ n: number }>();
     expect(pts!.n).toBe(1);
-    const src = await env.DB.prepare("SELECT last_success_at, next_check_at, calls_today FROM sources WHERE id='bestbuy'").first();
-    expect(src).toMatchObject({ last_success_at: T0, next_check_at: T0 + 300_000, calls_today: 1 });
+    const src = await env.DB.prepare("SELECT last_success_at, next_check_at FROM sources WHERE id='bestbuy'").first();
+    expect(src).toMatchObject({ last_success_at: T0, next_check_at: T0 + 300_000 });
+    const q = await env.DB.prepare("SELECT used, manual_used FROM quota_usage WHERE source_id='bestbuy'").first();
+    expect(q).toMatchObject({ used: 1, manual_used: 0 });
     // carga inicial: no hay avalancha de "nueva oferta"
     expect(await alertTypes()).toEqual(["new_best"]);
   });
@@ -130,29 +134,101 @@ describe("monitor programado", () => {
     expect(src!.backoff_until).toBeGreaterThan(T0 + 200_000);
     expect(src!.last_error).toBe("HTTP 503");
     const s2 = await runMonitor(env, { now: T0 + 60_000, trigger: "manual", force: true, adapters: { bestbuy: bb } });
-    expect(s2.sources[0]).toMatchObject({ status: "skipped", reason: "backoff" });
+    expect(s2.sources[0]).toMatchObject({ status: "skipped", reason: "circuito abierto (backoff)" });
     const chk = await env.DB.prepare("SELECT ok, error FROM checks").first();
     expect(chk).toMatchObject({ ok: 0, error: "HTTP 503" });
   });
 
-  it("corta al agotar el presupuesto diario de llamadas", async () => {
-    await env.DB.prepare("UPDATE sources SET daily_budget = 1 WHERE id='bestbuy'").run();
+  it("cuota: el automático nunca entra en la reserva y el manual solo usa la reserva", async () => {
+    // 10 llamadas/día, reserva 20 % → 8 automáticas + 2 manuales
+    await env.DB.prepare(`UPDATE sources SET quota = '{"windows":[{"kind":"day","limit":10,"tz":"UTC"}],"reservePct":20}' WHERE id='bestbuy'`).run();
     const bb = fakeAdapter("bestbuy", [[obs(129900)]]);
-    await runMonitor(env, { now: T0, trigger: "cron", adapters: { bestbuy: bb } });
-    // el intervalo adaptativo ya lo espacia a 24 h; forzado, el presupuesto lo corta igual
-    const s1 = await runMonitor(env, { now: T0 + 400_000, trigger: "cron", adapters: { bestbuy: bb } });
-    expect(s1.sources[0]).toMatchObject({ status: "skipped", reason: "no toca" });
-    const s2 = await runMonitor(env, { now: T0 + 400_000, trigger: "manual", force: true, adapters: { bestbuy: bb } });
-    expect(s2.sources[0]).toMatchObject({ status: "skipped", reason: "presupuesto agotado" });
-    expect(bb.calls).toBe(1);
-    await env.DB.prepare("UPDATE sources SET daily_budget = 2000 WHERE id='bestbuy'").run();
+    const t = (i: number) => T0 + i * 300_000;
+    for (let i = 0; i < 12; i++) await runMonitor(env, { now: t(i), trigger: "cron", force: true, adapters: { bestbuy: bb } });
+    expect(bb.calls).toBe(8);
+    const m1 = await runMonitor(env, { now: t(13), trigger: "manual", force: true, adapters: { bestbuy: bb } });
+    const m2 = await runMonitor(env, { now: t(14), trigger: "manual", force: true, adapters: { bestbuy: bb } });
+    const m3 = await runMonitor(env, { now: t(15), trigger: "manual", force: true, adapters: { bestbuy: bb } });
+    expect([m1, m2, m3].map((m) => m.sources[0]!.status)).toEqual(["ok", "ok", "skipped"]);
+    expect(m3.sources[0]!.reason).toMatch(/reserva/);
+    const q = await env.DB.prepare("SELECT used, manual_used FROM quota_usage WHERE source_id='bestbuy'").first();
+    expect(q).toMatchObject({ used: 10, manual_used: 2 });
+    // al día siguiente (UTC) la cuota se renueva sola
+    const next = await runMonitor(env, { now: T0 + 86400_000, trigger: "cron", force: true, adapters: { bestbuy: bb } });
+    expect(next.sources[0]!.status).toBe("ok");
+    await env.DB.prepare(`UPDATE sources SET quota = '{"windows":[{"kind":"day","limit":5000,"tz":"UTC"}],"reservePct":20}' WHERE id='bestbuy'`).run();
   });
 
-  it("intervalo efectivo adaptativo según presupuesto", () => {
-    const base = { min_interval_s: 300, interval_s: 300, daily_budget: 2000 } as Parameters<typeof effectiveIntervalS>[0];
-    expect(effectiveIntervalS(base, 1)).toBe(300);
-    expect(effectiveIntervalS({ ...base, daily_budget: 100 }, 1)).toBe(864);
-    expect(effectiveIntervalS({ ...base, daily_budget: 8 }, 1)).toBe(10800);
+  it("cuenta reintentos y llamadas fallidas en la cuota", async () => {
+    const flaky: SourceAdapter = {
+      id: "bestbuy",
+      callsPerRun: 1,
+      isConfigured: () => true,
+      async fetchOffers(_p, ctx) {
+        ctx.countCall();
+        ctx.countCall();
+        ctx.countCall(); // 3 intentos
+        throw new SourceError("HTTP 503", 503);
+      },
+    };
+    await runMonitor(env, { now: T0, trigger: "cron", adapters: { bestbuy: flaky } });
+    const q = await env.DB.prepare("SELECT used FROM quota_usage WHERE source_id='bestbuy'").first();
+    expect(q).toMatchObject({ used: 3 });
+  });
+
+  it("aislamiento: si una fuente falla o se agota, las demás siguen", async () => {
+    await env.DB.prepare(`UPDATE sources SET quota = '{"windows":[{"kind":"day","limit":1,"tz":"UTC"}],"reservePct":0}' WHERE id='bestbuy'`).run();
+    const bb = fakeAdapter("bestbuy", [[obs(129900)]]);
+    const eb = fakeAdapter("ebay", [new SourceError("HTTP 500", 500), [obs(105000, { sourceId: "ebay", externalId: "e1", store: "eBay · x" })]]);
+    const s1 = await runMonitor(env, { now: T0, trigger: "cron", adapters: { bestbuy: bb, ebay: eb } });
+    expect(s1.sources.map((s) => s.status)).toEqual(["ok", "error"]);
+    const s2 = await runMonitor(env, { now: T0 + 3600_000, trigger: "cron", adapters: { bestbuy: bb, ebay: eb } });
+    expect(s2.sources.find((s) => s.source === "bestbuy")).toMatchObject({ status: "skipped" });
+    expect(s2.sources.find((s) => s.source === "ebay")).toMatchObject({ status: "ok" });
+    await env.DB.prepare(`UPDATE sources SET quota = '{"windows":[{"kind":"day","limit":5000,"tz":"UTC"}],"reservePct":20}' WHERE id='bestbuy'`).run();
+  });
+
+  it("exclusión mutua: dos ejecuciones simultáneas no se solapan", async () => {
+    const slow: SourceAdapter & { calls: number } = {
+      id: "bestbuy",
+      callsPerRun: 1,
+      calls: 0,
+      isConfigured: () => true,
+      async fetchOffers(_p, ctx) {
+        ctx.countCall();
+        slow.calls++;
+        await new Promise((r) => setTimeout(r, 50));
+        return { observations: [obs(129900)], calls: 1 };
+      },
+    };
+    const [a, b] = await Promise.all([
+      runMonitor(env, { now: T0, trigger: "cron", force: true, adapters: { bestbuy: slow } }),
+      runMonitor(env, { now: T0, trigger: "cron", force: true, adapters: { bestbuy: slow } }),
+    ]);
+    expect([a.locked, b.locked].filter(Boolean)).toHaveLength(1);
+    expect(slow.calls).toBe(1);
+    // un bloqueo huérfano (ejecución que murió) caduca solo
+    expect(await acquireLock(env.DB, "x", "dead", T0, 1000)).toBe(true);
+    expect(await acquireLock(env.DB, "x", "other", T0 + 500)).toBe(false);
+    expect(await acquireLock(env.DB, "x", "other", T0 + 2000)).toBe(true);
+  });
+
+  it("alerta de fallo prolongado (una vez al día) y de oportunidad parcial", async () => {
+    const bad = fakeAdapter("bestbuy", [new SourceError("HTTP 500", 500)]);
+    for (let i = 0; i < 5; i++) {
+      await env.DB.prepare("UPDATE sources SET backoff_until = NULL WHERE id='bestbuy'").run();
+      await runMonitor(env, { now: T0 + i * 60_000, trigger: "cron", force: true, adapters: { bestbuy: bad } });
+    }
+    const types = await alertTypes();
+    expect(types.filter((t) => t === "source_failure")).toHaveLength(1);
+
+    await env.DB.prepare("UPDATE sources SET backoff_until = NULL, consecutive_failures = 0 WHERE id='bestbuy'").run();
+    const ok = fakeAdapter("bestbuy", [[obs(129900)], [obs(129900), obs(99900, { externalId: "p", title: "Google Pixel 11 Pro XL 256GB Unlocked", attrs: { condition: "New" } })]]);
+    await runMonitor(env, { now: T0 + 86400_000, trigger: "cron", force: true, adapters: { bestbuy: ok } });
+    await runMonitor(env, { now: T0 + 86400_000 + 300_000, trigger: "cron", force: true, adapters: { bestbuy: ok } });
+    const opp = await env.DB.prepare("SELECT title, body FROM alerts WHERE type='opportunity'").first<{ title: string; body: string }>();
+    expect(opp?.title).toBe("Oportunidad pendiente de verificación");
+    expect(opp?.body).toContain("color");
   });
 
   it("marca como inactivas las ofertas que desaparecen", async () => {
@@ -254,6 +330,27 @@ describe("API", () => {
     expect(a.publicKey).toMatch(/^[A-Za-z0-9_-]{87}$/);
     expect(a).toEqual(b);
     expect(JSON.stringify(a)).not.toContain('"d"');
+  });
+
+  it("panel de salud y sesiones", async () => {
+    const token = await login();
+    const other = await login();
+    const sys = (await (await api("/api/system", { token })).json()) as any;
+    expect(sys.cost.monthlyUsd).toBe(0);
+    expect(sys.cloudflareUsage.available).toBe(false); // no se inventan métricas
+    const serp = sys.sources.find((s: any) => s.id === "serpapi");
+    expect(serp).toMatchObject({ enabled: false, quotaVerified: true });
+    expect(serp.quotas[0]).toMatchObject({ kind: "cycle", limit: 250, reserve: 50 });
+    const r = (await (await api("/api/sessions/revoke-others", { method: "POST", token })).json()) as any;
+    expect(r.revoked).toBeGreaterThanOrEqual(1);
+    expect((await api("/api/dashboard", { token: other })).status).toBe(401);
+    expect((await api("/api/dashboard", { token })).status).toBe(200);
+  });
+
+  it("cabeceras de seguridad en la API", async () => {
+    const r = await api("/api/health");
+    expect(r.headers.get("content-security-policy")).toContain("default-src 'none'");
+    expect(r.headers.get("x-frame-options")).toBe("DENY");
   });
 
   it("consulta manual con límite de frecuencia", async () => {

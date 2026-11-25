@@ -55,12 +55,9 @@ export async function fetchWithRetry(
     if (res.ok) return res;
     const retryAfter = parseRetryAfter(res.headers.get("retry-after"));
     const transient = res.status === 429 || res.status >= 500;
-    lastErr = new SourceError(
-      `HTTP ${res.status}`,
-      res.status,
-      retryAfter,
-      res.status === 401 || res.status === 403,
-    );
+    // 401 = credencial inválida (no tiene sentido insistir). 403 NO se trata como
+    // fatal: algunos proveedores (Best Buy) lo usan también para exceso de cuota.
+    lastErr = new SourceError(`HTTP ${res.status}`, res.status, retryAfter, res.status === 401);
     if (!transient || attempt === retries) break;
     // Si el servidor pide esperar más de 5 s, no bloqueamos el cron: lo maneja el scheduler.
     if (retryAfter != null && retryAfter > 5000) break;
@@ -73,4 +70,12 @@ export async function fetchWithRetry(
 export function schedulerBackoffMs(failures: number, rand = Math.random()): number {
   const base = Math.min(5 * 60_000 * 2 ** Math.max(0, failures - 1), 6 * 3600_000);
   return Math.round(base * (0.9 + 0.2 * rand));
+}
+
+/** Elimina credenciales de cualquier texto antes de guardarlo o registrarlo. */
+export function redact(s: string): string {
+  return s
+    .replace(/(api_?key|apiKey|token|secret|client_secret)=([^&\s"']+)/gi, "$1=***")
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/g, "Bearer ***")
+    .replace(/Basic\s+[A-Za-z0-9+/=]+/g, "Basic ***");
 }

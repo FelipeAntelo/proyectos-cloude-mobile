@@ -101,15 +101,16 @@ jobs:
           BESTBUY_API_KEY: ${{ secrets.BESTBUY_API_KEY }}
           EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
           EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: |
           umask 077
           node -e '
-            const keys=["SETUP_CODE","BESTBUY_API_KEY","EBAY_CLIENT_ID","EBAY_CLIENT_SECRET"];
+            const keys=["SETUP_CODE","BESTBUY_API_KEY","EBAY_CLIENT_ID","EBAY_CLIENT_SECRET","SERPAPI_KEY"];
             const o={}; for (const k of keys) if (process.env[k]) o[k]=process.env[k];
             require("fs").writeFileSync(process.env.RUNNER_TEMP+"/secrets.json", JSON.stringify(o));
             console.log("Secretos presentes:", Object.keys(o).join(", ") || "ninguno");
           '
-          npx wrangler secret bulk "$RUNNER_TEMP/secrets.json"
+          if [ "$(cat "$RUNNER_TEMP/secrets.json")" != "{}" ]; then npx wrangler secret bulk "$RUNNER_TEMP/secrets.json"; fi
           rm -f "$RUNNER_TEMP/secrets.json"
       - name: Verificación post-despliegue
         run: |

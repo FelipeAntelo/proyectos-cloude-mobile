@@ -72,9 +72,9 @@ export interface SourceRow {
   enabled: number;
   interval_s: number;
   min_interval_s: number;
-  daily_budget: number;
-  calls_today: number;
-  budget_day: string | null;
+  quota: string;
+  last_change_at: number | null;
+  suspended_reason: string | null;
   consecutive_failures: number;
   backoff_until: number | null;
   next_check_at: number;

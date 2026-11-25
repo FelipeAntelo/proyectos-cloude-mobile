@@ -12,6 +12,8 @@ const SECURITY_HEADERS = {
   "x-content-type-options": "nosniff",
   "referrer-policy": "no-referrer",
   "x-frame-options": "DENY",
+  "strict-transport-security": "max-age=31536000; includeSubDomains",
+  "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
 };
 
 export function json(data: unknown, status = 200, extra: Record<string, string> = {}): Response {

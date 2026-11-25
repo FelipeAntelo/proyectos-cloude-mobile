@@ -5,6 +5,7 @@ import { totalWithTax } from "../domain/tax";
 import type { Env } from "../env";
 import { sha256Hex, safeJsonParse } from "../lib/util";
 import { deliverAlerts, runMonitor } from "../monitor";
+import { activeEvent, getProviderSync, intervalFactor, loadWindowStates, parseQuota, planSource } from "../quota";
 import { getOrCreateVapid, pushToAll } from "../notifier";
 import { isAllowedPushEndpoint } from "../push/webpush";
 import {
@@ -21,7 +22,7 @@ import {
 import { claim, rateLimit, requireSession, revokeSession } from "./auth";
 import { bool, dateMs, errorResponse, HttpError, httpsUrl, int, json, readJson, str } from "./http";
 
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "0.2.0";
 
 type Handler = (ctx: { req: Request; env: Env; now: number; params: Record<string, string>; session: string }) => Promise<Response>;
 
@@ -113,7 +114,19 @@ route("POST", "/api/auth/logout", async ({ env, session }) => {
 
 // ------------------------------------------------------------------ panel
 
-function offerView(o: OfferRow, taxRate: number) {
+export type DataState = "verified" | "partial" | "discovered" | "stale" | "unavailable" | "manual" | "simulated";
+
+/** Estado del dato mostrado al usuario (nunca se presenta una parcial como exacta). */
+export function offerState(o: OfferRow, sourceFresh: boolean): DataState {
+  if (o.verification === "simulated") return "simulated";
+  if (!o.active) return "unavailable";
+  if (o.verification === "manual") return "manual";
+  if (o.match_status === "partial") return "partial";
+  if (o.verification === "discovered") return "discovered";
+  return sourceFresh ? "verified" : "stale";
+}
+
+function offerView(o: OfferRow, taxRate: number, msrpCents: number | null, sourceFresh: boolean) {
   const delivered = deliveredCents(o);
   const t = o.price_cents != null ? totalWithTax(o.price_cents, o.shipping_cents, taxRate) : null;
   return {
@@ -124,14 +137,17 @@ function offerView(o: OfferRow, taxRate: number) {
     url: o.url,
     verification: o.verification,
     match: o.match_status,
+    state: offerState(o, sourceFresh),
     checks: safeJsonParse(o.match_checks, {}),
     priceCents: o.price_cents,
     shippingCents: o.shipping_cents,
     deliveredCents: delivered,
+    discountPct: delivered != null && msrpCents ? Math.round(((msrpCents - delivered) / msrpCents) * 1000) / 10 : null,
     taxCents: t?.taxCents ?? null,
     totalCents: t?.totalCents ?? null,
     inStock: o.in_stock == null ? null : o.in_stock === 1,
     pendingPriceCents: o.pending_price_cents,
+    firstSeenAt: o.first_seen_at,
     lastSeenAt: o.last_seen_at,
     lastChangedAt: o.last_changed_at,
     active: o.active === 1,
@@ -195,80 +211,186 @@ async function activeFinancing(db: D1Database, productId: string, now: number) {
 
 route("GET", "/api/dashboard", async ({ env, now }) => {
   const db = env.DB;
-  const [products, sources, settings] = await Promise.all([getProducts(db), getSources(db), getSettings(db)]);
+  const [products, settings, status] = await Promise.all([getProducts(db), getSettings(db), sourcesStatus(env, now)]);
+  const fresh = new Map(status.map((s) => [s.id, s.freshness === "verified" || s.freshness === "manual"]));
   const rate = settings.tax.ratePct;
   const items = [];
   for (const p of products) {
-    const offers = (await getOffers(db, p.id, true)).map((o) => offerView(o, rate));
-    const ranked = offers
+    const offers = (await getOffers(db, p.id, true))
+      .map((o) => offerView(o, rate, p.msrpCents, fresh.get(o.source_id) ?? false))
       .filter((o) => o.deliveredCents != null)
       .sort((a, b) => a.deliveredCents! - b.deliveredCents!);
-    const verifiedMatches = ranked.filter((o) => o.match === "match" && o.verification === "verified");
-    const best = verifiedMatches[0] ?? null;
-    const bestAny = ranked.find((o) => o.match === "match" || o.match === "user_asserted") ?? null;
+    const exact = offers.filter((o) => o.match === "match" || o.match === "user_asserted");
+    const best = exact.find((o) => o.state === "verified") ?? null;
+    const bestAny = exact.find((o) => o.state !== "unavailable") ?? null;
+    const opportunities = offers.filter((o) => o.state === "partial" || o.state === "discovered");
     const fin = (await activeFinancing(db, p.id, now)).filter((f) => !f.expired);
     items.push({
       product: p,
       best,
       bestAny,
-      offers: ranked,
+      offers: exact,
+      opportunities,
       financing: fin,
       bestFinancing: fin.reduce<(typeof fin)[number] | null>((m, f) => (isBetterFinancing(m, f) ? f : m), null),
     });
   }
   const { results: alerts } = await db.prepare("SELECT * FROM alerts ORDER BY created_at DESC LIMIT 20").all();
-  return json({
-    now,
-    tax: settings.tax,
-    products: items,
-    sources: sources.map((s) => sourceView(s, env, now, settings.staleness.staleAfterIntervals)),
-    alerts,
-  });
+  return json({ now, tax: settings.tax, products: items, sources: status, alerts });
 });
 
-function sourceView(s: Awaited<ReturnType<typeof getSources>>[number], env: Env, now: number, staleAfter: number) {
-  const configured = s.kind === "manual" || Boolean(ADAPTERS[s.id]?.isConfigured(env));
-  return {
-    id: s.id,
-    name: s.name,
-    kind: s.kind,
-    enabled: s.enabled === 1,
-    configured,
-    freshness: sourceFreshness(s, configured, now, staleAfter),
-    intervalS: s.interval_s,
-    minIntervalS: s.min_interval_s,
-    dailyBudget: s.daily_budget,
-    callsToday: s.budget_day === new Date(now).toISOString().slice(0, 10) ? s.calls_today : 0,
-    lastSuccessAt: s.last_success_at,
-    lastAttemptAt: s.last_attempt_at,
-    lastError: s.last_error,
-    lastErrorAt: s.last_error_at,
-    consecutiveFailures: s.consecutive_failures,
-    nextCheckAt: s.next_check_at,
-    backoffUntil: s.backoff_until,
-  };
+/** Estado de fuentes con cuotas reales, ritmo efectivo y frescura. */
+export async function sourcesStatus(env: Env, now: number) {
+  const db = env.DB;
+  const [sources, settings, products] = await Promise.all([getSources(db), getSettings(db), getProducts(db, true)]);
+  const prepared = await Promise.all(
+    sources.map(async (s) => {
+      const quota = parseQuota(s.quota);
+      const sync = quota.syncFromProvider ? await getProviderSync(db, s.id) : null;
+      return { s, quota, sync };
+    }),
+  );
+  const windows = await loadWindowStates(db, prepared.map((p) => ({ id: p.s.id, quota: p.quota, sync: p.sync })), now);
+  const event = activeEvent(now, settings.events);
+  return prepared.map(({ s, quota, sync }) => {
+    const adapter = ADAPTERS[s.id];
+    const configured = s.kind === "manual" || Boolean(adapter?.isConfigured(env));
+    const ws = windows.get(s.id) ?? [];
+    const plan = adapter
+      ? planSource({
+          now,
+          windows: ws,
+          callsPerRun: adapter.callsPerRun * Math.max(1, products.length),
+          desiredIntervalS: s.interval_s,
+          minIntervalS: s.min_interval_s,
+          intervalFactor: intervalFactor({
+            event: Boolean(event),
+            monthlyQuota: quota.windows.some((w) => w.kind === "cycle" || w.kind === "month"),
+            lastChangeAt: s.last_change_at,
+            now,
+          }),
+        })
+      : null;
+    return {
+      id: s.id,
+      name: s.name,
+      kind: s.kind,
+      enabled: s.enabled === 1,
+      configured,
+      freshness: sourceFreshness(s, configured, now, settings.staleness.staleAfterIntervals),
+      suspendedReason: s.suspended_reason,
+      desiredIntervalS: s.interval_s,
+      effectiveIntervalS: plan?.intervalS ?? null,
+      autoAllowed: plan?.autoAllowed ?? null,
+      manualAllowed: plan?.manualAllowed ?? null,
+      quotaVerified: quota.verified ?? false,
+      quotaNote: quota.note ?? null,
+      quotaSyncedAt: sync?.syncedAt ?? null,
+      quotas: ws.map((w) => ({
+        kind: w.kind,
+        limit: w.limit,
+        used: w.used,
+        manualUsed: w.manualUsed,
+        reserve: w.reserve,
+        remaining: Math.max(0, w.limit - w.used),
+        usagePct: w.limit > 0 ? Math.round((w.used / w.limit) * 1000) / 10 : 0,
+        resetsAt: w.end,
+      })),
+      lastSuccessAt: s.last_success_at,
+      lastAttemptAt: s.last_attempt_at,
+      lastError: s.last_error,
+      lastErrorAt: s.last_error_at,
+      consecutiveFailures: s.consecutive_failures,
+      nextCheckAt: s.next_check_at,
+      backoffUntil: s.backoff_until,
+    };
+  });
 }
 
 route("GET", "/api/sources", async ({ env, now }) => {
-  const [sources, settings] = await Promise.all([getSources(env.DB), getSettings(env.DB)]);
-  const { results: checks } = await env.DB
-    .prepare("SELECT * FROM checks ORDER BY started_at DESC LIMIT 50")
-    .all();
-  return json({ sources: sources.map((s) => sourceView(s, env, now, settings.staleness.staleAfterIntervals)), checks });
+  const { results: checks } = await env.DB.prepare("SELECT * FROM checks ORDER BY started_at DESC LIMIT 50").all();
+  return json({ sources: await sourcesStatus(env, now), checks });
 });
 
-route("PATCH", "/api/sources/:id", async ({ req, env, params }) => {
+route("PATCH", "/api/sources/:id", async ({ req, env, params, now }) => {
   const body = await readJson(req);
   const src = (await getSources(env.DB)).find((s) => s.id === params.id);
   if (!src) throw new HttpError(404, "Fuente no encontrada");
   const enabled = bool(body, "enabled", { optional: true });
   const interval = int(body, "intervalS", src.min_interval_s, 86400, { optional: true });
-  const budget = int(body, "dailyBudget", 0, 50000, { optional: true });
+  const reservePct = int(body, "reservePct", 20, 90, { optional: true }); // mínimo 20 % por directiva
+  const resume = bool(body, "resume", { optional: true });
+  let quotaJson: string | null = null;
+  if (reservePct != null) quotaJson = JSON.stringify({ ...parseQuota(src.quota), reservePct });
   await env.DB
-    .prepare("UPDATE sources SET enabled = COALESCE(?, enabled), interval_s = COALESCE(?, interval_s), daily_budget = COALESCE(?, daily_budget) WHERE id = ?")
-    .bind(enabled == null ? null : enabled ? 1 : 0, interval ?? null, budget ?? null, src.id)
+    .prepare(
+      `UPDATE sources SET enabled = COALESCE(?, enabled), interval_s = COALESCE(?, interval_s), quota = COALESCE(?, quota),
+         suspended_reason = CASE WHEN ? THEN NULL ELSE suspended_reason END,
+         backoff_until = CASE WHEN ? THEN NULL ELSE backoff_until END,
+         next_check_at = CASE WHEN ? THEN ? ELSE next_check_at END
+       WHERE id = ?`,
+    )
+    .bind(enabled == null ? null : enabled ? 1 : 0, interval ?? null, quotaJson, resume ? 1 : 0, resume ? 1 : 0, resume ? 1 : 0, now, src.id)
     .run();
   return json({ ok: true });
+});
+
+// ------------------------------------------------------------------ salud del sistema
+
+route("GET", "/api/system", async ({ env, now }) => {
+  const db = env.DB;
+  const [sources, push, lastCron, lastManual, counts, sessions] = await Promise.all([
+    sourcesStatus(env, now),
+    db.prepare("SELECT COUNT(*) AS n, MAX(last_ok_at) AS last FROM push_subscriptions WHERE revoked = 0").first<{ n: number; last: number | null }>(),
+    db.prepare("SELECT value FROM kv_internal WHERE key = 'monitor:last_cron'").first<{ value: string }>(),
+    db.prepare("SELECT value FROM kv_internal WHERE key = 'monitor:last_manual'").first<{ value: string }>(),
+    db
+      .prepare(
+        `SELECT (SELECT COUNT(*) FROM offers) AS offers, (SELECT COUNT(*) FROM price_points) AS pricePoints,
+                (SELECT COUNT(*) FROM alerts) AS alerts, (SELECT COUNT(*) FROM checks) AS checks`,
+      )
+      .first<Record<string, number>>(),
+    db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE expires_at > ?").bind(now).first<{ n: number }>(),
+  ]);
+  const cron = safeJsonParse<{ startedAt?: number; finishedAt?: number } | null>(lastCron?.value, null);
+  const configured = sources.filter((s) => s.kind !== "manual" && s.configured && s.enabled);
+  const healthy = configured.filter((s) => s.freshness === "verified");
+  const overall = !cron
+    ? "sin ejecuciones"
+    : now - (cron.startedAt ?? 0) > 20 * 60_000
+      ? "monitor detenido"
+      : configured.length === 0
+        ? "sin fuentes configuradas"
+        : healthy.length === configured.length
+          ? "operativo"
+          : healthy.length > 0
+            ? "degradado"
+            : "sin datos al día";
+  return json({
+    now,
+    overall,
+    event: activeEvent(now, (await getSettings(db)).events)?.name ?? null,
+    monitor: {
+      lastCron: cron,
+      lastManual: safeJsonParse(lastManual?.value, null),
+      // El cron dispara cada 5 min (*/5): próxima ejecución prevista.
+      nextCronAt: now - (now % 300_000) + 300_000,
+      cronExpression: "*/5 * * * *",
+    },
+    sources,
+    push: { subscriptions: push?.n ?? 0, lastDeliveredAt: push?.last ?? null },
+    storage: counts ?? {},
+    sessions: sessions?.n ?? 0,
+    cost: {
+      monthlyUsd: 0,
+      basis:
+        "Planes gratuitos vigentes (Cloudflare Workers Free + D1 Free, APIs con cuota gratuita). Cloudflare Free no factura por uso: al superar un límite, la operación falla. Las condiciones pueden cambiar.",
+    },
+    cloudflareUsage: {
+      available: false,
+      note: "Las métricas de CPU y peticiones de Cloudflare no se pueden leer desde el Worker sin un token adicional; se revisan en el panel de Cloudflare.",
+    },
+  });
 });
 
 // ------------------------------------------------------------------ productos
@@ -495,19 +617,54 @@ route("POST", "/api/financing/manual", async ({ req, env, now }) => {
 
 // ------------------------------------------------------------------ monitor bajo demanda
 
-route("POST", "/api/check-now", async ({ env, now }) => {
+route("POST", "/api/check-now", async ({ req, env, now }) => {
   if (!(await rateLimit(env.DB, "check-now", 1, 120_000, now))) {
     throw new HttpError(429, "Espera 2 minutos entre consultas manuales");
   }
-  const summary = await runMonitor(env, { now, trigger: "manual", force: true });
+  // Las fuentes con cuota mensual (descubrimiento) solo se consultan si se pide expresamente:
+  // las consultas manuales consumen únicamente la reserva y nunca el presupuesto automático.
+  let includeDiscovery = false;
+  if ((req.headers.get("content-type") ?? "").includes("application/json")) {
+    includeDiscovery = bool(await readJson(req), "includeDiscovery", { optional: true }) ?? false;
+  }
+  const only = (await getSources(env.DB)).filter((s) => includeDiscovery || s.kind !== "discovery").map((s) => s.id);
+  const summary = await runMonitor(env, { now, trigger: "manual", force: true, only });
   return json(summary);
 });
 
 // ------------------------------------------------------------------ alertas y ajustes
 
-route("GET", "/api/alerts", async ({ env }) => {
-  const { results } = await env.DB.prepare("SELECT * FROM alerts ORDER BY created_at DESC LIMIT 100").all();
+route("GET", "/api/alerts", async ({ req, env }) => {
+  const type = new URL(req.url).searchParams.get("type");
+  if (type && !/^[a-z_]{3,30}$/.test(type)) throw new HttpError(400, "type inválido");
+  const { results } = type
+    ? await env.DB.prepare("SELECT * FROM alerts WHERE type = ? ORDER BY created_at DESC LIMIT 100").bind(type).all()
+    : await env.DB.prepare("SELECT * FROM alerts ORDER BY created_at DESC LIMIT 100").all();
   return json({ alerts: results });
+});
+
+// ------------------------------------------------------------------ sesiones
+
+route("GET", "/api/sessions", async ({ env, now, session }) => {
+  const { results } = await env.DB
+    .prepare("SELECT token_hash, label, created_at, last_used_at, expires_at FROM sessions WHERE expires_at > ? ORDER BY last_used_at DESC")
+    .bind(now)
+    .all<{ token_hash: string; label: string | null; created_at: number; last_used_at: number; expires_at: number }>();
+  return json({
+    sessions: results.map((r) => ({
+      id: r.token_hash.slice(0, 12),
+      label: r.label,
+      createdAt: r.created_at,
+      lastUsedAt: r.last_used_at,
+      expiresAt: r.expires_at,
+      current: r.token_hash === session,
+    })),
+  });
+});
+
+route("POST", "/api/sessions/revoke-others", async ({ env, session }) => {
+  const r = await env.DB.prepare("DELETE FROM sessions WHERE token_hash != ?").bind(session).run();
+  return json({ revoked: r.meta.changes ?? 0 });
 });
 
 route("GET", "/api/settings", async ({ env }) => {
@@ -521,7 +678,10 @@ route("PATCH", "/api/settings", async ({ req, env }) => {
   const n = body.notifications as Record<string, unknown> | undefined;
   if (n) {
     const next = { ...s.notifications };
-    for (const k of ["priceDrop", "targetReached", "newOffer", "newBest", "backInStock", "financing", "discovered"] as const) {
+    for (const k of [
+      "priceDrop", "targetReached", "newOffer", "newBest", "backInStock", "financing", "discovered",
+      "allTimeLow", "newStore", "opportunities", "priceIncrease", "system",
+    ] as const) {
       const v = bool(n, k, { optional: true });
       if (v != null) next[k] = v;
     }

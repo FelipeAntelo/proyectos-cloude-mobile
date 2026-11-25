@@ -2,6 +2,7 @@ import { DEFAULT_PREFS, type NotificationPrefs } from "./domain/alerts";
 import { DEFAULT_TAX, type TaxSettings } from "./domain/tax";
 import type { Product, ProductSpec, SourceRow } from "./domain/types";
 import { safeJsonParse } from "./lib/util";
+import type { CommercialEvent } from "./quota";
 
 interface ProductRow {
   id: string;
@@ -46,6 +47,8 @@ export interface AppSettings {
   tax: TaxSettings;
   staleness: { staleAfterIntervals: number };
   appOrigin: string | null;
+  events: CommercialEvent[];
+  retention: { checksDays: number; alertsDays: number; inactiveOffersDays: number };
 }
 
 export async function getSettings(db: D1Database): Promise<AppSettings> {
@@ -56,6 +59,10 @@ export async function getSettings(db: D1Database): Promise<AppSettings> {
     tax: { ...DEFAULT_TAX, ...safeJsonParse(m.get("tax"), {}) },
     staleness: { staleAfterIntervals: 3, ...safeJsonParse(m.get("staleness"), {}) },
     appOrigin: safeJsonParse<string | null>(m.get("app_origin"), null),
+    events: safeJsonParse<CommercialEvent[]>(m.get("events"), []).filter(
+      (e) => e && typeof e.start === "number" && typeof e.end === "number",
+    ),
+    retention: { checksDays: 30, alertsDays: 365, inactiveOffersDays: 180, ...safeJsonParse(m.get("retention"), {}) },
   };
 }
 
@@ -101,7 +108,7 @@ export function deliveredCents(o: { price_cents: number | null; shipping_cents: 
   return o.price_cents == null ? null : o.price_cents + (o.shipping_cents ?? 0);
 }
 
-export type Freshness = "verified" | "stale" | "unavailable" | "not_configured" | "disabled" | "manual";
+export type Freshness = "verified" | "stale" | "unavailable" | "not_configured" | "disabled" | "manual" | "suspended" | "backoff";
 
 export function sourceFreshness(
   s: SourceRow,
@@ -111,7 +118,9 @@ export function sourceFreshness(
 ): Freshness {
   if (s.kind === "manual") return "manual";
   if (!s.enabled) return "disabled";
+  if (s.suspended_reason) return "suspended";
   if (!configured) return "not_configured";
+  if (s.backoff_until && s.backoff_until > now && s.consecutive_failures > 0) return "backoff";
   if (!s.last_success_at) return "unavailable";
   const interval = Math.max(s.interval_s, s.min_interval_s) * 1000;
   return now - s.last_success_at <= interval * staleAfterIntervals + 60_000 ? "verified" : "stale";

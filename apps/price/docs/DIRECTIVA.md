@@ -6,8 +6,8 @@
 
 Leyenda: ✅ implementado y probado · 🟨 parcial · ⬜ pendiente · ⛔ bloqueado
 (requiere acción externa) · ✖ no viable bajo las restricciones actuales.
-"Probado" significa tests automatizados en el contenedor/CI; **nada está
-verificado en producción todavía** (no hay despliegue).
+"Probado" significa tests automatizados en el contenedor/CI. Las verificaciones
+en producción se listan en §4.
 
 ## 1. Resumen de la directiva
 
@@ -50,7 +50,7 @@ real, (6) primera push real, (7) diseño, (8) expansión de fuentes.
 ### Monitoreo autónomo
 | Requisito | Estado |
 |---|---|
-| Cron cada 5 min en servidor, independiente del iPhone | ✅ código · ⛔ despliegue |
+| Cron cada 5 min en servidor, independiente del iPhone | ✅ producción (§4) |
 | Frecuencias por fuente: Best Buy/eBay 5 min; SerpApi ~4 h | ✅ |
 | Eventos comerciales (Black Friday–Cyber Monday + eventos configurables) aceleran solo si hay presupuesto | ✅ |
 | Fuentes estables > 7 días con cuota mensual se espacian (×1,5) | ✅ |
@@ -108,9 +108,9 @@ real, (6) primera push real, (7) diseño, (8) expansión de fuentes.
 | Estructura Inicio · Ofertas · Historial · Alertas · Ajustes (+ panel de salud) | ✅ |
 | Rendimiento frontend | ✅ ~81 KB gzip JS, ~4 KB CSS |
 | Retención y compactación de datos | ✅ (checks 30 d, alertas 365 d, cuotas 90 d, ofertas parciales inactivas 180 d; historial solo en cambios) |
-| Despliegue real en workers.dev | ⛔ falta cuenta de Cloudflare |
+| Despliegue real en workers.dev | ✅ producción (§4) |
 | Primera integración comercial real | ⛔ faltan credenciales (eBay recomendado primero) |
-| Push real con iPhone bloqueado | ⛔ requiere despliegue |
+| Push real con iPhone bloqueado | ✅ producción (§4) |
 
 ## 3. Decisiones registradas
 
@@ -121,3 +121,15 @@ real, (6) primera push real, (7) diseño, (8) expansión de fuentes.
 - **Black Friday 2026 (26-nov → 30-nov)**: el monitor acelera solo cuando el presupuesto lo permite.
 - **403 de Best Buy**: no se trata como credencial inválida, porque Best Buy lo usa también para el exceso de cuota. Solo el 401 pausa la fuente 6 h.
 - **Gratuidad**: las condiciones actuales de los proveedores son gratuitas, pero pueden cambiar. El sistema detecta cambios de cuota en SerpApi y alerta. Para el resto, el panel de salud muestra el consumo real.
+
+## 4. Verificaciones en producción
+
+| Fecha (UTC) | Verificación | Evidencia |
+|---|---|---|
+| 2026-11-25 12:59 | Despliegue en `https://price.5ktwd4y5ch.workers.dev`; D1 creada y migrada; token con permisos mínimos (Workers Scripts: Edit, D1: Edit) | GitHub Actions run 45618891299 |
+| 2026-11-25 13:10 | Cron `*/5 * * * *` registrado; secreto `SETUP_CODE` cargado; CSP, HSTS, API privada con 401 sin sesión, manifest y SW servidos | Run 45620672070 (comprobaciones post-despliegue) |
+| 2026-11-25 | PWA instalada en iPhone 11 desde Safari y vinculada con el código de acceso | Confirmado por el usuario |
+| 2026-11-25 | Push inmediata recibida | Confirmado por el usuario |
+| 2026-11-25 | **Push enviada por el cron del servidor, recibida con el iPhone bloqueado y PRICE, Claude y Safari cerrados** (criterios 5, 11, 12 y 19) | Confirmado por el usuario; la prueba la envía `deliverPendingTest` desde `scheduled()` |
+
+Criterios del MVP (§22 de la directiva) pendientes: integración comercial real (6), precio real (7), variante validada con datos reales (8), historial con datos reales (9), enlace de compra real (10), consumo de CPU medido (17).

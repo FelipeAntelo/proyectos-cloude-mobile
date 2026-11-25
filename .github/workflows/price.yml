@@ -118,4 +118,11 @@ jobs:
           echo "Desplegado en: $URL"
           for i in $(seq 1 20); do curl -sf "$URL/api/health" && break; sleep 3; done
           curl -sf "$URL/api/health" | node -e 'const h=JSON.parse(require("fs").readFileSync(0,"utf8")); if(!h.ok) process.exit(1); console.log(JSON.stringify(h,null,2))'
+          # Comprobaciones de producción (sin credenciales).
+          curl -sfI "$URL/" | grep -qi "content-security-policy: default-src 'self'" && echo "✓ CSP en la PWA"
+          curl -sfI "$URL/" | grep -qi "strict-transport-security" && echo "✓ HSTS"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL/api/dashboard")
+          [ "$CODE" = "401" ] && echo "✓ API privada exige autenticación" || { echo "::error::/api/dashboard devolvió $CODE sin token"; exit 1; }
+          curl -sf "$URL/manifest.webmanifest" >/dev/null && echo "✓ manifest"
+          curl -sf "$URL/sw.js" >/dev/null && echo "✓ service worker"
           echo "### PRICE desplegado: $URL" >> "$GITHUB_STEP_SUMMARY"

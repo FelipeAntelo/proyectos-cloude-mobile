@@ -11,6 +11,9 @@ Para crear una PWA nueva, usar el skill `pwa-builder`
 
 ## Apps
 
+- [`apps/price`](./apps/price) — seguimiento automatizado de precios con
+  alertas push (React/TS + Cloudflare Workers/D1; excepción autorizada a las
+  reglas del laboratorio, no se sirve desde GitHub Pages).
 - [`apps/equilibra`](./apps/equilibra) — registro de gastos compartidos entre
   compañeros: balances automáticos, recomendación de próximo pagador,
   compensaciones, análisis y backup local (IndexedDB, offline-first).

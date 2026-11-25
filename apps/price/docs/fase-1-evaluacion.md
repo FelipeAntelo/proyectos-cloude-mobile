@@ -1,6 +1,6 @@
 # PRICE — Fase 1: evaluación de herramientas, fuentes, arquitectura y alcance del MVP
 
-Fecha: 2026-11-25 · Estado: **propuesta, pendiente de confirmación del usuario**
+Fecha: 2026-11-25 · Estado: **aprobada con cambios (ver §10)** · Continúa en [fase-2-fuentes-y-backend.md](./fase-2-fuentes-y-backend.md)
 
 Este documento separa explícitamente lo **verificado** (probado o confirmado en
 fuente oficial durante esta sesión) de lo **pendiente de verificar** (se
@@ -182,3 +182,28 @@ afiliados (B&H/Adorama/Newegg), detección automática de financiación.
 1. Precio de referencia 1.299 (MSRP verificado) y valor del precio objetivo.
 2. Aceptar la excepción a `CLAUDE.md` para `apps/price/`.
 3. MVP con Best Buy + eBay automáticos y el resto manual.
+
+## 10. Decisiones confirmadas por el usuario (2026-11-25)
+
+1. **Precios**: MSRP provisional USD 1.299 (pendiente de verificación oficial,
+   `msrp_status = provisional`). Objetivo inicial USD 799, configurable. El MSRP
+   no se confunde con el precio promocional vigente.
+   - **Corrección a §2**: la afirmación "con objetivo 799 la alerta casi nunca
+     saltaría" se basaba solo en el precio de lanzamiento. Sí existe una
+     promoción vigente de **USD 899** para el 256 GB desbloqueado (Black Friday
+     2026, Amazon / Google Store / Best Buy según medios; ver fase 2 §1).
+   - Las alertas **no se limitan al objetivo**: bajada sobre el último precio
+     verificado, nueva oferta relevante, nuevo mejor precio, vuelta a stock y
+     mejor financiación.
+2. **Excepción del repositorio** autorizada: React, TypeScript, Tailwind,
+   Cloudflare Workers, D1 y herramientas de build **solo dentro de
+   `apps/price/`**. El workflow de CI se limita a `apps/price/**`.
+3. **MVP**: Best Buy y eBay como primeras integraciones automáticas,
+   condicionadas a obtener credenciales. La carga manual **no** es la solución
+   definitiva: se investiga una capa de descubrimiento (fase 2 §3).
+4. **Financiación** es funcionalidad central (modelo de datos completo, carga
+   manual con procedencia y fecha obligatorias).
+5. **Monitoreo** en servidor, intervalos adaptativos, presupuestos de cuota,
+   backoff, deduplicación y protección contra falsos positivos.
+6. **Seguridad**: autenticación, validación, secretos solo en servidor.
+7. **Costes**: cálculo explícito (fase 2 §6) y límites de consumo.

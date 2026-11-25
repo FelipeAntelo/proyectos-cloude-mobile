@@ -1,0 +1,120 @@
+# PRICE — CI/CD (solo afecta a apps/price; las demás apps no se tocan).
+# - test: typecheck + unit/integración (workerd + D1 local) + build + e2e (Playwright contra wrangler dev).
+# - deploy: crea/migra D1, despliega el Worker y carga secretos. Solo si hay credenciales de Cloudflare.
+name: PRICE
+
+on:
+  push:
+    paths: ["apps/price/**", ".github/workflows/price.yml"]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Desplegar en Cloudflare"
+        type: boolean
+        default: true
+
+concurrency:
+  group: price-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: apps/price
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/price/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - name: e2e (Playwright, viewport iPhone 11)
+        run: |
+          npm install -g playwright@1.65.1
+          npx -y playwright@1.65.1 install --with-deps chromium
+          printf 'SETUP_CODE=ci-e2e-code-1234567\n' > .dev.vars
+          npx wrangler d1 migrations apply price --local
+          npx wrangler dev --local --port 8787 > wrangler-dev.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf localhost:8787/api/health && break; sleep 1; done
+          mkdir -p shots
+          BASE_URL=http://localhost:8787 SETUP_CODE=ci-e2e-code-1234567 NODE_PATH=$(npm root -g) node e2e/smoke.mjs shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: price-e2e-screenshots
+          path: apps/price/shots
+          if-no-files-found: ignore
+
+  deploy:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy || github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar credenciales
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Falta el secreto CLOUDFLARE_API_TOKEN (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/price/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Base de datos D1 (crear si no existe) y migraciones
+        run: |
+          ID=$(npx wrangler d1 list --json | node -e 'const l=JSON.parse(require("fs").readFileSync(0,"utf8"));const d=l.find(x=>x.name==="price");process.stdout.write(d?d.uuid:"")')
+          if [ -z "$ID" ]; then
+            npx wrangler d1 create price
+            ID=$(npx wrangler d1 list --json | node -e 'const l=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(l.find(x=>x.name==="price").uuid)')
+          fi
+          sed -i "s/00000000-0000-0000-0000-000000000000/$ID/" wrangler.jsonc
+          npx wrangler d1 migrations apply price --remote
+      - name: Desplegar Worker
+        id: deploy
+        run: |
+          npx wrangler deploy | tee deploy.log
+          URL=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+      - name: Cargar secretos del Worker
+        env:
+          SETUP_CODE: ${{ secrets.PRICE_SETUP_CODE }}
+          BESTBUY_API_KEY: ${{ secrets.BESTBUY_API_KEY }}
+          EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
+          EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+        run: |
+          umask 077
+          node -e '
+            const keys=["SETUP_CODE","BESTBUY_API_KEY","EBAY_CLIENT_ID","EBAY_CLIENT_SECRET"];
+            const o={}; for (const k of keys) if (process.env[k]) o[k]=process.env[k];
+            require("fs").writeFileSync(process.env.RUNNER_TEMP+"/secrets.json", JSON.stringify(o));
+            console.log("Secretos presentes:", Object.keys(o).join(", ") || "ninguno");
+          '
+          npx wrangler secret bulk "$RUNNER_TEMP/secrets.json"
+          rm -f "$RUNNER_TEMP/secrets.json"
+      - name: Verificación post-despliegue
+        run: |
+          URL="${{ steps.deploy.outputs.url }}"
+          echo "Desplegado en: $URL"
+          for i in $(seq 1 20); do curl -sf "$URL/api/health" && break; sleep 3; done
+          curl -sf "$URL/api/health" | node -e 'const h=JSON.parse(require("fs").readFileSync(0,"utf8")); if(!h.ok) process.exit(1); console.log(JSON.stringify(h,null,2))'
+          echo "### PRICE desplegado: $URL" >> "$GITHUB_STEP_SUMMARY"

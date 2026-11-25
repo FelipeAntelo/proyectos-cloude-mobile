@@ -359,3 +359,16 @@ describe("API", () => {
     expect((await api("/api/check-now", { method: "POST", token })).status).toBe(429);
   });
 });
+
+describe("prueba de push diferida", () => {
+  it("se programa desde la API y la consume el cron una sola vez", async () => {
+    const r = await SELF.fetch("https://price.test/api/auth/claim", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: "test-setup-code-123456" }) });
+    const { token } = (await r.json()) as { token: string };
+    const s = await SELF.fetch("https://price.test/api/push/test", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ delayed: true }) });
+    expect(await s.json()).toMatchObject({ scheduled: true });
+    const now = Date.now() + 60_000;
+    await runMonitor(env, { now, trigger: "cron", adapters: {} });
+    const left = await env.DB.prepare("SELECT COUNT(*) AS n FROM kv_internal WHERE key = 'push:pending_test'").first<{ n: number }>();
+    expect(left!.n).toBe(0);
+  });
+});

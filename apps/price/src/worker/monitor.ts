@@ -219,6 +219,25 @@ async function runLocked(env: Env, opts: RunOptions, now: number, summary: RunSu
 
   summary.alertsCreated = newAlerts.length;
   if (newAlerts.length) summary.pushes = await deliverAlerts(env, newAlerts, now);
+  if (opts.trigger === "cron") await deliverPendingTest(env, now);
+}
+
+/** Prueba de push diferida (programada desde la app, enviada por el cron). */
+async function deliverPendingTest(env: Env, now: number) {
+  const row = await env.DB
+    .prepare("DELETE FROM kv_internal WHERE key = 'push:pending_test' AND expires_at > ? RETURNING value")
+    .bind(now)
+    .first<{ value: string }>();
+  if (!row) return;
+  const requested = Number(row.value);
+  const sender = await createPushSender(env);
+  await sender.send({
+    title: "PRICE · Prueba desde el servidor",
+    body: `Enviada por el monitor automático ${Math.max(0, Math.round((now - requested) / 60000))} min después de pedirla, sin la app abierta.`,
+    url: "/",
+    tag: "test",
+  });
+  await sender.flush();
 }
 
 function systemAlert(type: "source_failure" | "quota_warning" | "provider_change", key: string, title: string, body: string): AlertCandidate {

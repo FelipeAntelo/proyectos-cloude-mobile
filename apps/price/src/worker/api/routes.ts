@@ -751,8 +751,20 @@ route("GET", "/api/push/status", async ({ env }) => {
   return json({ subscriptions: row?.n ?? 0, lastDeliveredAt: row?.last ?? null });
 });
 
-route("POST", "/api/push/test", async ({ env, now }) => {
+route("POST", "/api/push/test", async ({ req, env, now }) => {
   if (!(await rateLimit(env.DB, "push-test", 3, 600_000, now))) throw new HttpError(429, "Máximo 3 pruebas cada 10 minutos");
+  let delayed = false;
+  if ((req.headers.get("content-type") ?? "").includes("application/json")) {
+    delayed = bool(await readJson(req), "delayed", { optional: true }) ?? false;
+  }
+  if (delayed) {
+    // La envía el monitor programado: prueba real con la app cerrada y el iPhone bloqueado.
+    await env.DB
+      .prepare("INSERT OR REPLACE INTO kv_internal (key, value, expires_at) VALUES ('push:pending_test', ?, ?)")
+      .bind(String(now), now + 3600_000)
+      .run();
+    return json({ scheduled: true, maxDelaySeconds: 300 });
+  }
   const r = await pushToAll(env, {
     title: "PRICE · Notificación de prueba",
     body: "Si ves esto, las notificaciones push funcionan en este dispositivo.",

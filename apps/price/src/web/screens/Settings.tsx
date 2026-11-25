@@ -33,6 +33,12 @@ export function Settings({ d, notify, theme, setTheme, onLogout }: {
       notify(r.sent ? "Prueba enviada. Bloquea el iPhone para comprobarla." : `No se pudo enviar (${r.failed} fallos)`);
     } catch (e) { notify((e as Error).message); }
   }
+  async function delayedTest() {
+    try {
+      await api("/api/push/test", { method: "POST", body: { delayed: true } });
+      notify("Programada. Cierra PRICE y bloquea el iPhone: llegará en ≤ 5 min.");
+    } catch (e) { notify((e as Error).message); }
+  }
   async function revokeOthers() {
     try { const r = await api<{ revoked: number }>("/api/sessions/revoke-others", { method: "POST" }); notify(`${r.revoked} sesiones cerradas`); }
     catch (e) { notify((e as Error).message); }
@@ -50,6 +56,7 @@ export function Settings({ d, notify, theme, setTheme, onLogout }: {
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex min-h-11 items-center gap-2 text-[15px]"><BellRing className="h-4 w-4" aria-hidden /> Activadas</span>
             <Button kind="secondary" onClick={testPush}>Enviar prueba</Button>
+            <Button kind="secondary" onClick={delayedTest}>Prueba con la app cerrada</Button>
           </div>
         ) : (
           <Button onClick={turnOnPush} disabled={busy}><Bell className="h-4 w-4" aria-hidden /> Activar notificaciones</Button>

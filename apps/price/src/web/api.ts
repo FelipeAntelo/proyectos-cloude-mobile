@@ -44,6 +44,7 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
 // ------------------------------------------------------------------ tipos de la API
 
 export type Verification = "verified" | "discovered" | "manual" | "simulated";
+export type DataState = "verified" | "partial" | "discovered" | "stale" | "unavailable" | "manual" | "simulated";
 
 export interface OfferView {
   id: string;
@@ -53,14 +54,17 @@ export interface OfferView {
   url: string;
   verification: Verification;
   match: "match" | "partial" | "mismatch" | "user_asserted";
+  state: DataState;
   checks: { notes?: string[] } & Record<string, unknown>;
   priceCents: number | null;
   shippingCents: number | null;
   deliveredCents: number | null;
+  discountPct: number | null;
   taxCents: number | null;
   totalCents: number | null;
   inStock: boolean | null;
   pendingPriceCents: number | null;
+  firstSeenAt: number;
   lastSeenAt: number;
   lastChangedAt: number;
 }
@@ -85,20 +89,38 @@ export interface FinancingView {
   observedAt: number;
 }
 
+export interface QuotaView {
+  kind: "hour" | "day" | "month" | "cycle";
+  limit: number;
+  used: number;
+  manualUsed: number;
+  reserve: number;
+  remaining: number;
+  usagePct: number;
+  resetsAt: number;
+}
+
 export interface SourceView {
   id: string;
   name: string;
   kind: string;
   enabled: boolean;
   configured: boolean;
-  freshness: "verified" | "stale" | "unavailable" | "not_configured" | "disabled" | "manual";
-  intervalS: number;
-  dailyBudget: number;
-  callsToday: number;
+  freshness: "verified" | "stale" | "unavailable" | "not_configured" | "disabled" | "manual" | "suspended" | "backoff";
+  suspendedReason: string | null;
+  desiredIntervalS: number;
+  effectiveIntervalS: number | null;
+  autoAllowed: boolean | null;
+  quotaVerified: boolean;
+  quotaNote: string | null;
+  quotas: QuotaView[];
   lastSuccessAt: number | null;
+  lastAttemptAt: number | null;
   lastError: string | null;
   lastErrorAt: number | null;
+  consecutiveFailures: number;
   nextCheckAt: number;
+  backoffUntil: number | null;
 }
 
 export interface Product {
@@ -108,6 +130,7 @@ export interface Product {
   msrpCents: number | null;
   msrpStatus: "provisional" | "verified";
   targetCents: number | null;
+  active: boolean;
 }
 
 export interface AlertRow {
@@ -117,28 +140,90 @@ export interface AlertRow {
   body: string;
   url: string | null;
   verification: Verification;
+  price_cents: number | null;
+  prev_cents: number | null;
   created_at: number;
   pushed_at: number | null;
+  push_result: string | null;
+}
+
+export interface ProductItem {
+  product: Product;
+  best: OfferView | null;
+  bestAny: OfferView | null;
+  offers: OfferView[];
+  opportunities: OfferView[];
+  financing: FinancingView[];
+  bestFinancing: FinancingView | null;
 }
 
 export interface Dashboard {
   now: number;
-  tax: { zip: string; place: string; ratePct: number; status: string };
-  products: Array<{
-    product: Product;
-    best: OfferView | null;
-    bestAny: OfferView | null;
-    offers: OfferView[];
-    financing: FinancingView[];
-    bestFinancing: FinancingView | null;
-  }>;
+  tax: { zip: string; place: string; ratePct: number; status: string; note?: string };
+  products: ProductItem[];
   sources: SourceView[];
   alerts: AlertRow[];
+}
+
+export interface SystemView {
+  now: number;
+  overall: string;
+  event: string | null;
+  monitor: { lastCron: { startedAt: number; finishedAt?: number } | null; nextCronAt: number; cronExpression: string };
+  sources: SourceView[];
+  push: { subscriptions: number; lastDeliveredAt: number | null };
+  storage: Record<string, number>;
+  sessions: number;
+  cost: { monthlyUsd: number; basis: string };
+  cloudflareUsage: { available: boolean; note: string };
+}
+
+export interface NotificationPrefs {
+  priceDrop: boolean;
+  targetReached: boolean;
+  newOffer: boolean;
+  newBest: boolean;
+  backInStock: boolean;
+  financing: boolean;
+  discovered: boolean;
+  allTimeLow: boolean;
+  newStore: boolean;
+  opportunities: boolean;
+  priceIncrease: boolean;
+  system: boolean;
+  minDropCents: number;
+  minDropPct: number;
+  cooldownMinutes: number;
+}
+
+/** Solo enlaces https externos se renderizan como enlace. */
+export function safeHref(u: string | null | undefined): string | undefined {
+  if (!u) return undefined;
+  try {
+    const url = new URL(u, location.origin);
+    return url.protocol === "https:" || url.origin === location.origin ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function duration(s: number | null | undefined): string {
+  if (s == null) return "—";
+  if (s < 3600) return `${Math.round(s / 60)} min`;
+  const h = s / 3600;
+  return h < 48 ? `${h % 1 === 0 ? h : h.toFixed(1)} h` : `${Math.round(h / 24)} d`;
 }
 
 export function usd(cents: number | null | undefined): string {
   if (cents == null) return "—";
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+export function until(ms: number | null | undefined, now = Date.now()): string {
+  if (!ms) return "—";
+  const s = Math.round((ms - now) / 1000);
+  if (s <= 0) return "ahora";
+  return `en ${duration(s)}`;
 }
 
 export function ago(ms: number | null | undefined, now = Date.now()): string {

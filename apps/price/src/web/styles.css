@@ -81,4 +81,6 @@ body {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-input, select, textarea, button { font: inherit; color: inherit; }
+@layer base {
+  input, select, textarea, button { font: inherit; color: inherit; }
+}

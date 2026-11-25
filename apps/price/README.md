@@ -32,9 +32,11 @@ npm test
 Despliegue: GitHub Actions (`.github/workflows/price.yml`) → Cloudflare.
 Secretos (GitHub → Settings → Secrets and variables → Actions):
 `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (opcional), `PRICE_SETUP_CODE`,
-`BESTBUY_API_KEY`, `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`.
+`BESTBUY_API_KEY`, `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `SERPAPI_KEY` (opcional, experimental).
 
 ## Documentación
+
+- [**Directiva maestra y auditoría** (referencia permanente)](docs/DIRECTIVA.md)
 
 - [Fase 1 — evaluación y decisiones](docs/fase-1-evaluacion.md)
 - [Fase 2 — fuentes, descubrimiento, backend y costes](docs/fase-2-fuentes-y-backend.md)
